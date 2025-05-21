@@ -4,24 +4,38 @@ import { AvatarWithVerify } from "@/components/ui/avatar-with-verify";
 import { Button } from "@/components/ui/button";
 import { Track } from "@/lib/types";
 import { Link } from "react-router-dom";
-import { Play, Pause, Heart } from "lucide-react";
+import { Play, Pause, Heart, MessageSquare, MoreHorizontal, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { playTrack, pauseTrack, getCurrentTrackId, getIsPlaying } from "./MusicPlayer";
 import { audioStore } from "./MusicPlayer";
 import { toast } from "sonner";
 import CommentSection from "./CommentSection";
+import { useWallet } from "@/lib/walletUtils";
+import { deleteTrack } from "@/lib/mockData";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface MusicTrackCardProps {
   track: Track;
   compact?: boolean;
   index?: number;
+  onDelete?: () => void;
+  className?: string;
 }
 
-export default function MusicTrackCard({ track, compact = false, index }: MusicTrackCardProps) {
+export default function MusicTrackCard({ track, compact = false, index, onDelete, className }: MusicTrackCardProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [isCurrentTrack, setIsCurrentTrack] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const { isConnected, address } = useWallet();
+  
+  // Check if current user is the track owner
+  const isOwner = address && track.artist.walletAddress?.toLowerCase() === address.toLowerCase();
   
   useEffect(() => {
     const updatePlaybackState = (currentTrackId: string | null, playing: boolean) => {
@@ -74,9 +88,27 @@ export default function MusicTrackCard({ track, compact = false, index }: MusicT
     track.comments += 1;
   };
 
+  const handleDelete = async () => {
+    try {
+      const success = await deleteTrack(track.id);
+      if (success) {
+        toast.success("Track deleted successfully");
+        onDelete?.();
+      } else {
+        toast.error("Failed to delete track");
+      }
+    } catch (error) {
+      console.error("Error deleting track:", error);
+      toast.error("Failed to delete track");
+    }
+  };
+  
   if (compact) {
     return (
-      <div className="flex items-center gap-3 p-2 hover:bg-accent rounded-md group">
+      <div className={cn(
+        "flex items-center gap-3 p-2 hover:bg-accent rounded-md group",
+        className
+      )}>
         <AvatarWithVerify
           src={track.coverArt}
           fallback={track.title.substring(0, 2)}
@@ -104,7 +136,10 @@ export default function MusicTrackCard({ track, compact = false, index }: MusicT
   }
 
   return (
-    <Card className="overflow-hidden">
+    <Card className={cn(
+      "overflow-hidden",
+      className
+    )}>
       <CardContent className="p-0">
         <div className="flex flex-col md:flex-row md:h-[150px]">
           <div className="relative md:w-[150px] h-[150px] bg-secondary group">
@@ -152,14 +187,21 @@ export default function MusicTrackCard({ track, compact = false, index }: MusicT
                   </Link>
                 </div>
                 
-                <Button 
-                  variant="outline" 
-                  size="icon"
-                  className={cn("h-8 w-8 rounded-full", isLiked ? "text-red-500 border-red-200" : "")}
-                  onClick={handleLike}
-                >
-                  <Heart className={cn("h-4 w-4", isLiked ? "fill-current" : "")} />
-                </Button>
+                {isOwner && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem className="text-destructive" onClick={handleDelete}>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Track
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
               
               <div className="flex gap-4 mt-auto pt-4">

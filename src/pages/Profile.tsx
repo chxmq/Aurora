@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
-import { mockUsers, mockTracks, mockPosts, addPost, getUserByWalletAddress } from "@/lib/mockData";
+import { mockUsers, mockTracks, mockPosts, addPost, getUserByWalletAddress, getPopulatedPosts, updateUser, initializeIfEmpty } from "@/lib/mockData";
 import { User, Track, Post } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AvatarWithVerify } from "@/components/ui/avatar-with-verify";
@@ -12,17 +12,23 @@ import TipArtistModal from "@/components/TipArtistModal";
 import EditProfileModal from "@/components/EditProfileModal";
 import { useWallet } from "@/lib/walletUtils";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { getUsers, saveUsers, saveIPFSMapping } from "@/lib/localStorage";
+import { saveUserToPinata } from "@/lib/pinataStorage";
+import { FEATURES } from "@/lib/config";
+import { useStorage } from "@/lib/StorageProvider";
 
 export default function ProfilePage() {
   const { id } = useParams();
+  const { isConnected, address, connectWallet } = useWallet();
+  const { isPinataInitialized } = useStorage();
   const [user, setUser] = useState<User | null>(null);
   const [userTracks, setUserTracks] = useState<Track[]>([]);
-  const [userPosts, setUserPosts] = useState<Post[]>([]);
+  const [userPosts, setUserPosts] = useState<(Post & { user: User })[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>("tracks");
+  const [isEditMode, setIsEditMode] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
-  const { isConnected, address, connectWallet } = useWallet();
   const navigate = useNavigate();
   
   // Load user data - either by ID or by connected wallet
@@ -30,26 +36,28 @@ export default function ProfilePage() {
     const fetchUserData = async () => {
       setIsLoading(true);
       try {
-        // Simulate API call latency
-        await new Promise(resolve => setTimeout(resolve, 300));
+        // Ensure mock data is initialized
+        initializeIfEmpty();
+        
+        // Get fresh users data from local storage
+        const users = getUsers();
         
         let userData: User | null = null;
         
         // Different ways to load user data
         if (id) {
           // Specific user by ID
-          userData = mockUsers.find(u => u.id === id) || null;
+          userData = users.find(u => u.id === id) || null;
         } else if (address) {
           // Current user by wallet address
-          userData = getUserByWalletAddress(address);
+          userData = users.find(u => u.walletAddress?.toLowerCase() === address.toLowerCase());
           
           // If no user found but wallet is connected, create a new user profile
           if (!userData && isConnected) {
-            // This would normally be an API call to create a user
             userData = {
-              id: mockUsers.length + 1 + '',
-              username: `@user${Math.floor(Math.random() * 1000)}`,
-              displayName: "New User",
+              id: (users.length + 1).toString(),
+              username: `user_${address.substring(2, 8)}`,
+              displayName: `User ${address.substring(2, 8)}`,
               avatar: "/placeholder.svg",
               isVerified: false,
               followers: 0,
@@ -57,15 +65,20 @@ export default function ProfilePage() {
               posts: 0,
               walletAddress: address
             };
-            mockUsers.push(userData);
+            
+            // Add new user to storage
+            const updatedUsers = [...users, userData];
+            saveUsers(updatedUsers);
             toast.success("Created new profile for your wallet");
           }
-        } else {
-          // Default to the first user if nothing else is available
-          userData = mockUsers[0];
         }
         
         if (!userData) {
+          if (!id && !isConnected) {
+            toast.error("Please connect your wallet to view your profile");
+            navigate('/');
+            return;
+          }
           throw new Error("User not found");
         }
         
@@ -91,34 +104,71 @@ export default function ProfilePage() {
     };
     
     fetchUserData();
-  }, [id, address, isConnected]);
+  }, [id, address, isConnected, navigate]);
   
-  const handleProfileUpdate = (updatedUserData: Partial<User>) => {
+  const handleProfileUpdate = async (updatedUserData: Partial<User>) => {
     if (user) {
-      const updatedUser = { ...user, ...updatedUserData };
-      setUser(updatedUser);
-      
-      // Update the user in mock data
-      const userIndex = mockUsers.findIndex(u => u.id === user.id);
-      if (userIndex !== -1) {
-        mockUsers[userIndex] = { ...mockUsers[userIndex], ...updatedUserData } as User;
+      try {
+        toast.loading("Updating profile...");
+        
+        // Get fresh users data from local storage
+        const users = getUsers();
+        const userIndex = users.findIndex(u => u.id === user.id);
+        
+        if (userIndex === -1) {
+          throw new Error('User not found');
+        }
+        
+        // Update user data
+        const updatedUser = {
+          ...users[userIndex],
+          ...updatedUserData
+        };
+        
+        // Update in local storage
+        users[userIndex] = updatedUser;
+        saveUsers(users);
+        
+        // Try to save to Pinata if enabled
+        if (FEATURES.ENABLE_PINATA && isPinataInitialized) {
+          try {
+            const hash = await saveUserToPinata(updatedUser);
+            // Save Pinata mapping
+            saveIPFSMapping({
+              id: updatedUser.id,
+              cid: hash,
+              type: 'user',
+              timestamp: Date.now()
+            });
+          } catch (pinataError) {
+            console.warn('Failed to save to Pinata, continuing with local storage:', pinataError);
+          }
+        }
+        
+        // Update local state
+        setUser(updatedUser);
+        
+        // Update user reference in tracks
+        const updatedTracks = userTracks.map(track => ({
+          ...track,
+          artist: track.artist.id === user.id ? updatedUser : track.artist
+        }));
+        setUserTracks(updatedTracks);
+        
+        // Update user reference in posts
+        const updatedPosts = userPosts.map(post => ({
+          ...post,
+          user: updatedUser
+        }));
+        setUserPosts(updatedPosts);
+        
+        toast.dismiss(); // Dismiss the loading toast
+        toast.success("Profile updated successfully");
+      } catch (error) {
+        toast.dismiss(); // Dismiss the loading toast
+        console.error("Error updating profile:", error);
+        toast.error("Failed to update profile");
       }
-      
-      // Update user reference in tracks
-      const updatedTracks = userTracks.map(track => ({
-        ...track,
-        artist: track.artist.id === user.id ? updatedUser : track.artist
-      }));
-      setUserTracks(updatedTracks);
-      
-      // Update user reference in posts
-      const updatedPosts = userPosts.map(post => ({
-        ...post,
-        user: updatedUser
-      }));
-      setUserPosts(updatedPosts);
-      
-      toast.success("Profile updated successfully");
     }
   };
   
@@ -147,6 +197,19 @@ export default function ProfilePage() {
       await connectWallet();
       toast.success("Wallet connected successfully");
     }
+  };
+  
+  const handleTrackDelete = () => {
+    // Refresh user's tracks
+    if (user) {
+      const tracks = mockTracks.filter(track => track.artist.id === user.id);
+      setUserTracks(tracks);
+    }
+  };
+  
+  const handlePostDelete = (postId: string) => {
+    // Implement the logic to delete a post
+    console.log(`Deleting post with id: ${postId}`);
   };
   
   if (isLoading || !user) {
@@ -250,25 +313,22 @@ export default function ProfilePage() {
                 </Button>
               )}
             </div>
-            {userTracks.length > 0 ? (
-              <div className="grid grid-cols-1 gap-6">
-                {userTracks.map((track) => (
-                  <MusicTrackCard key={track.id} track={track} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-10 bg-secondary/20 rounded-xl">
-                <p className="text-muted-foreground mb-4">No tracks yet</p>
-                {isCurrentUser && (
-                  <Button 
-                    onClick={() => navigate('/create')} 
-                    className="bg-music-primary hover:bg-music-secondary"
-                  >
-                    Create Your First Track
-                  </Button>
-                )}
-              </div>
-            )}
+            <div className="space-y-4">
+              {userTracks.length > 0 ? (
+                userTracks.map((track, index) => (
+                  <MusicTrackCard
+                    key={track.id}
+                    track={track}
+                    index={index}
+                    onDelete={handleTrackDelete}
+                  />
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No tracks found
+                </div>
+              )}
+            </div>
           </TabsContent>
           
           <TabsContent value="posts" className="pt-4">
@@ -286,7 +346,11 @@ export default function ProfilePage() {
             {userPosts.length > 0 ? (
               <div className="grid grid-cols-1 gap-6">
                 {userPosts.map((post) => (
-                  <PostCard key={post.id} post={post} />
+                  <PostCard 
+                    key={post.id} 
+                    post={{...post, user: user!}} 
+                    onDelete={() => handlePostDelete(post.id)}
+                  />
                 ))}
               </div>
             ) : (
