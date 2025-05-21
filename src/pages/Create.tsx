@@ -8,13 +8,38 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Music, Upload, FileMusic, X } from "lucide-react";
 import { useWallet } from "@/lib/walletUtils";
 import { toast } from "sonner";
-import { addPost, addTrack, getUserByWalletAddress } from "@/lib/mockData";
+import { addPost, addTrack, getUserByWalletAddress, mockTracks } from "@/lib/mockData";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { uploadAudioToIPFS } from "@/lib/ipfsStorage";
+import { useStorage } from "@/lib/StorageProvider";
+import { generateId } from "@/lib/utils";
+import { FEATURES } from "@/lib/config";
+import { storeFile } from "@/lib/fileStorage";
+
+// Default images and tracks for fallbacks
+const DEFAULT_IMAGES = [
+  "/images/ncs1.jpg",
+  "/images/ncs2.jpg",
+  "/images/ncs3.jpg"
+];
+
+const DEFAULT_TRACKS = mockTracks.slice(0, 3);
+
+// Get a random default image
+const getRandomDefaultImage = () => {
+  return DEFAULT_IMAGES[Math.floor(Math.random() * DEFAULT_IMAGES.length)];
+};
+
+// Get a random default track
+const getRandomDefaultTrack = () => {
+  return DEFAULT_TRACKS[Math.floor(Math.random() * DEFAULT_TRACKS.length)];
+};
 
 export default function CreatePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isConnected, connectWallet, address } = useWallet();
+  const { isInitialized, isIPFSInitialized } = useStorage();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') === 'post' ? 'post' : 'track');
   
@@ -120,19 +145,14 @@ export default function CreatePage() {
       toast.error("Please connect your wallet first");
       return;
     }
+
+    if (!isInitialized) {
+      toast.error("Storage system is not initialized yet");
+      return;
+    }
     
     if (!trackForm.title.trim()) {
       toast.error("Track title is required");
-      return;
-    }
-
-    if (!audioFile) {
-      toast.error("Audio file is required");
-      return;
-    }
-
-    if (!coverArtFile) {
-      toast.error("Cover art is required");
       return;
     }
     
@@ -146,20 +166,44 @@ export default function CreatePage() {
         return;
       }
 
-      // Create a static audio URL that can be accessed later
-      const audioFileName = `track-${Date.now()}-${audioFile.name}`;
-      const audioUrl = `/music/${audioFileName}`;
+      let audioUrl: string;
+      let coverArtUrl: string;
 
-      // For mock data, we'll use a sample audio URL that we know works
-      const sampleAudioUrl = "/src/music/electronic-future-beats-117997.mp3";
+      // Try to upload files, use defaults if fails
+      try {
+        if (FEATURES.ENABLE_IPFS && isIPFSInitialized && audioFile && coverArtFile) {
+          const audioCid = await uploadAudioToIPFS(audioFile);
+          audioUrl = `ipfs://${audioCid}`;
+          const coverArtCid = await uploadAudioToIPFS(coverArtFile);
+          coverArtUrl = `ipfs://${coverArtCid}`;
+        } else if (audioFile && coverArtFile) {
+          const audioId = await storeFile(audioFile);
+          audioUrl = `file://${audioId}`;
+          const coverArtId = await storeFile(coverArtFile);
+          coverArtUrl = `file://${coverArtId}`;
+        } else {
+          const defaultTrack = getRandomDefaultTrack();
+          audioUrl = defaultTrack.audioUrl;
+          coverArtUrl = defaultTrack.coverArt;
+        }
+      } catch (error) {
+        console.error('Error uploading files:', error);
+        const defaultTrack = getRandomDefaultTrack();
+        audioUrl = defaultTrack.audioUrl;
+        coverArtUrl = defaultTrack.coverArt;
+      }
       
       // Add the track using mockData function
-      const newTrack = addTrack({
+      await addTrack({
         title: trackForm.title,
         artist: user,
-        coverArt: coverArtPreview || '/images/music-cover.jpg',
-        audioUrl: sampleAudioUrl, // Use sample audio URL for now
-        duration: 180 // Default duration for sample track
+        coverArt: coverArtUrl,
+        audioUrl: audioUrl,
+        likes: 0,
+        comments: 0,
+        plays: 0,
+        createdAt: new Date().toISOString(),
+        duration: 180
       });
 
       // Reset form
@@ -180,7 +224,8 @@ export default function CreatePage() {
       });
     } catch (error) {
       console.error("Error creating track:", error);
-      toast.error("Failed to create track. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Failed to create track. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -190,6 +235,11 @@ export default function CreatePage() {
     e.preventDefault();
     if (!isConnected) {
       toast.error("Please connect your wallet first");
+      return;
+    }
+
+    if (!isInitialized) {
+      toast.error("Storage system is not initialized yet");
       return;
     }
     
@@ -208,11 +258,27 @@ export default function CreatePage() {
         return;
       }
 
+      let mediaUrl: string | undefined;
+      try {
+        if (postMediaFile) {
+          if (FEATURES.ENABLE_IPFS && isIPFSInitialized) {
+            const mediaCid = await uploadAudioToIPFS(postMediaFile);
+            mediaUrl = `ipfs://${mediaCid}`;
+          } else {
+            const mediaId = await storeFile(postMediaFile);
+            mediaUrl = `file://${mediaId}`;
+          }
+        }
+      } catch (error) {
+        console.error('Error uploading media:', error);
+        mediaUrl = getRandomDefaultImage();
+      }
+
       // Add the post using mockData function
-      const newPost = addPost({
+      await addPost({
         userId: user.id,
         content: postForm.content,
-        image: postMediaPreview || undefined
+        image: mediaUrl
       });
 
       // Reset form
@@ -228,7 +294,8 @@ export default function CreatePage() {
       });
     } catch (error) {
       console.error("Error creating post:", error);
-      toast.error("Failed to create post. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Failed to create post. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -237,7 +304,7 @@ export default function CreatePage() {
   // Add a function to handle tab changes
   const handleTabChange = (value: string) => {
     // Reset forms when switching tabs
-    if (value === 'track') {
+    if (value === 'post') {
       setPostForm({ content: "" });
       setPostMediaFile(null);
       setPostMediaPreview(null);

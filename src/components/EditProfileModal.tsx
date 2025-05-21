@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { 
   Dialog, 
@@ -112,8 +111,6 @@ export default function EditProfileModal({
       };
       
       onProfileUpdate(updatedUserData);
-      
-      toast.success("Profile updated successfully!");
       onOpenChange(false);
       setIsSubmitting(false);
     }, 500);

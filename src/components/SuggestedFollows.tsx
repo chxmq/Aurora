@@ -1,16 +1,20 @@
-
 import { Button } from "@/components/ui/button";
 import { AvatarWithVerify } from "@/components/ui/avatar-with-verify";
 import { User } from "@/lib/types";
 import { Link } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 interface SuggestedFollowsProps {
   users: User[];
+  className?: string;
 }
 
-export default function SuggestedFollows({ users }: SuggestedFollowsProps) {
+export default function SuggestedFollows({ users, className }: SuggestedFollowsProps) {
   return (
-    <div className="bg-secondary/50 rounded-xl p-4">
+    <div className={cn(
+      "bg-secondary/50 rounded-xl p-4",
+      className
+    )}>
       <h2 className="font-semibold mb-4">Suggested Follows</h2>
       <div className="space-y-4">
         {users.map((user) => (

@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +9,7 @@ import { addPost } from "@/lib/mockData";
 import { mockUsers, mockTracks } from "@/lib/mockData";
 import { toast } from "sonner";
 import { Track } from "@/lib/types";
+import { useData } from "@/lib/DataProvider";
 import { 
   Popover,
   PopoverContent,
@@ -25,8 +25,9 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated?: () =
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const { isConnected, address } = useWallet();
+  const { currentUser, refreshPosts } = useData();
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!isConnected) {
@@ -41,38 +42,55 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated?: () =
     
     setIsSubmitting(true);
     
-    // Find the current user (in a real app this would come from authentication)
-    // For now we'll use the first user or find by wallet address
-    const currentUser = mockUsers.find(
-      (user) => user.walletAddress?.toLowerCase() === address?.toLowerCase()
-    ) || mockUsers[0];
-    
-    // Add track info to the post content if a track is selected
-    let finalContent = content;
-    if (selectedTrack) {
-      finalContent += `\n\n🎵 Listening to: ${selectedTrack.title} by ${selectedTrack.artist.displayName}`;
-    }
-    
-    // Create new post
-    const newPost = addPost({
-      userId: currentUser.id,
-      content: finalContent,
-      image: imageUrl || undefined,
-      user: currentUser
-    });
-    
-    // Reset form
-    setContent("");
-    setImageUrl("");
-    setShowImageInput(false);
-    setSelectedTrack(null);
-    setIsSubmitting(false);
-    
-    toast.success("Post created successfully!");
-    
-    // Notify parent component
-    if (onPostCreated) {
-      onPostCreated();
+    try {
+      // Use current user from DataProvider or fallback to first mock user
+      const user = currentUser || mockUsers.find(
+        (user) => user.walletAddress?.toLowerCase() === address?.toLowerCase()
+      );
+
+      if (!user) {
+        toast.error("User not found. Please make sure your wallet is connected properly.");
+        return;
+      }
+      
+      // Add track info to the post content if a track is selected
+      let finalContent = content;
+      if (selectedTrack) {
+        finalContent += `\n\n🎵 Listening to: ${selectedTrack.title} by ${selectedTrack.artist.displayName}`;
+      }
+      
+      // Create new post
+      const newPost = await addPost({
+        userId: user.id,
+        content: finalContent,
+        image: imageUrl || undefined
+      });
+
+      if (!newPost) {
+        throw new Error("Failed to create post - no post data returned");
+      }
+      
+      // Reset form
+      setContent("");
+      setImageUrl("");
+      setShowImageInput(false);
+      setSelectedTrack(null);
+      
+      toast.success("Post created successfully!");
+      
+      // Refresh posts immediately
+      refreshPosts();
+      
+      // Notify parent component
+      if (onPostCreated) {
+        onPostCreated();
+      }
+    } catch (error) {
+      console.error('Error creating post:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to create post. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
     }
   };
   

@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { mockTracks } from "@/lib/mockData";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
+import { getFileUrl } from "@/lib/fileStorage";
 
 interface MusicPlayerProps {
   className?: string;
@@ -143,10 +144,25 @@ export const audioStore = {
         this.audioElement.pause();
         this.audioElement.currentTime = 0;
         
-        // Get the filename from the URL and create the correct path
-        const fileName = track.audioUrl.split('/').pop();
-        // Use absolute path that works across all routes
-        const audioUrl = fileName ? `/music/${fileName}` : track.audioUrl;
+        let audioUrl = track.audioUrl;
+        
+        // Handle different URL types
+        if (audioUrl.startsWith('file://')) {
+          // Get the file URL from storage
+          const fileId = audioUrl.replace('file://', '');
+          const storedUrl = getFileUrl(fileId);
+          if (!storedUrl) {
+            throw new Error('Audio file not found in storage');
+          }
+          audioUrl = storedUrl;
+        } else if (audioUrl.startsWith('/')) {
+          // Handle absolute paths that work across all routes
+          audioUrl = audioUrl;
+        } else if (audioUrl.startsWith('ipfs://')) {
+          // Handle IPFS URLs (you'll need to implement IPFS gateway URL conversion)
+          const ipfsGateway = 'https://ipfs.io/ipfs/';
+          audioUrl = audioUrl.replace('ipfs://', ipfsGateway);
+        }
 
         this.audioElement.src = audioUrl;
         
