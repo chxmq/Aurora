@@ -15,6 +15,11 @@ import { useStorage } from "@/lib/StorageProvider";
 import { generateId } from "@/lib/utils";
 import { FEATURES } from "@/lib/config";
 import { storeFile } from "@/lib/fileStorage";
+import { uploadAudioToPinata, uploadImageToPinata, saveTrackToPinata } from "@/lib/pinataStorage";
+import { PINATA_GATEWAY } from "@/lib/pinataStorage";
+import { getTracks, saveTracks } from "@/lib/localStorage";
+import { useData } from "@/lib/DataProvider";
+import { TrackInput } from "@/lib/types";
 
 // Default images and tracks for fallbacks
 const DEFAULT_IMAGES = [
@@ -52,7 +57,8 @@ export default function CreatePage() {
   const [trackForm, setTrackForm] = useState({
     title: "",
     description: "",
-    price: "0.01"
+    price: "0.01",
+    lyrics: ""
   });
   
   // File states
@@ -72,6 +78,8 @@ export default function CreatePage() {
     content: ""
   });
   
+  const { refreshData } = useData();
+
   const handleTrackFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setTrackForm(prev => ({ ...prev, [name]: value }));
@@ -166,51 +174,74 @@ export default function CreatePage() {
         return;
       }
 
-      let audioUrl: string;
-      let coverArtUrl: string;
+      let audioUrl: string = "";
+      let coverArtUrl: string = "";
+      let audioHash: string | null = null;
+      let coverArtHash: string | null = null;
 
-      // Try to upload files, use defaults if fails
-      try {
-        if (FEATURES.ENABLE_IPFS && isIPFSInitialized && audioFile && coverArtFile) {
-          const audioCid = await uploadAudioToIPFS(audioFile);
-          audioUrl = `ipfs://${audioCid}`;
-          const coverArtCid = await uploadAudioToIPFS(coverArtFile);
-          coverArtUrl = `ipfs://${coverArtCid}`;
-        } else if (audioFile && coverArtFile) {
-          const audioId = await storeFile(audioFile);
-          audioUrl = `file://${audioId}`;
-          const coverArtId = await storeFile(coverArtFile);
-          coverArtUrl = `file://${coverArtId}`;
-        } else {
+      // Upload audio and cover art to Pinata
+      if (FEATURES.ENABLE_PINATA && audioFile) {
+        try {
+          audioHash = await uploadAudioToPinata(audioFile);
+          audioUrl = `${PINATA_GATEWAY}${audioHash}`;
+        } catch (error) {
+          toast.error("Failed to upload audio to Pinata. Using default audio.");
           const defaultTrack = getRandomDefaultTrack();
           audioUrl = defaultTrack.audioUrl;
+        }
+      }
+      if (FEATURES.ENABLE_PINATA && coverArtFile) {
+        try {
+          coverArtHash = await uploadImageToPinata(coverArtFile);
+          coverArtUrl = `${PINATA_GATEWAY}${coverArtHash}`;
+        } catch (error) {
+          toast.error("Failed to upload cover art to Pinata. Using default cover art.");
+          const defaultTrack = getRandomDefaultTrack();
           coverArtUrl = defaultTrack.coverArt;
         }
-      } catch (error) {
-        console.error('Error uploading files:', error);
+      }
+      if (!audioUrl) {
         const defaultTrack = getRandomDefaultTrack();
         audioUrl = defaultTrack.audioUrl;
+      }
+      if (!coverArtUrl) {
+        const defaultTrack = getRandomDefaultTrack();
         coverArtUrl = defaultTrack.coverArt;
       }
-      
-      // Add the track using mockData function
-      await addTrack({
+
+      // Create the track object
+      const trackInput = {
         title: trackForm.title,
         artist: user,
-        coverArt: coverArtUrl,
+        coverArt: coverArtUrl || getRandomDefaultImage(),
         audioUrl: audioUrl,
         likes: 0,
         comments: 0,
         plays: 0,
         createdAt: new Date().toISOString(),
-        duration: 180
-      });
+        duration: 0
+      };
+      const track = await addTrack(trackInput);
+      // After track is created, update it with lyrics if present
+      if (trackForm.lyrics && track) {
+        track.lyrics = trackForm.lyrics;
+        const tracks = getTracks();
+        const idx = tracks.findIndex(t => t.id === track.id);
+        if (idx !== -1) {
+          tracks[idx] = track;
+          saveTracks(tracks);
+        }
+      }
+
+      // Refresh global data if available
+      if (refreshData) refreshData();
 
       // Reset form
       setTrackForm({
         title: "",
         description: "",
-        price: "0.01"
+        price: "0.01",
+        lyrics: ""
       });
       setAudioFile(null);
       setCoverArtFile(null);
@@ -261,7 +292,10 @@ export default function CreatePage() {
       let mediaUrl: string | undefined;
       try {
         if (postMediaFile) {
-          if (FEATURES.ENABLE_IPFS && isIPFSInitialized) {
+          if (FEATURES.ENABLE_PINATA) {
+            const imageHash = await uploadImageToPinata(postMediaFile);
+            mediaUrl = `ipfs://${imageHash}`;
+          } else if (FEATURES.ENABLE_IPFS && isIPFSInitialized) {
             const mediaCid = await uploadAudioToIPFS(postMediaFile);
             mediaUrl = `ipfs://${mediaCid}`;
           } else {
@@ -312,7 +346,8 @@ export default function CreatePage() {
       setTrackForm({
         title: "",
         description: "",
-        price: "0.01"
+        price: "0.01",
+        lyrics: ""
       });
       setAudioFile(null);
       setCoverArtFile(null);
@@ -490,6 +525,19 @@ export default function CreatePage() {
                     placeholder="0.01"
                     value={trackForm.price}
                     onChange={handleTrackFormChange}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="lyrics">Lyrics (optional)</Label>
+                  <Textarea
+                    id="lyrics"
+                    name="lyrics"
+                    value={trackForm.lyrics}
+                    onChange={handleTrackFormChange}
+                    placeholder="Paste or type the lyrics here..."
+                    rows={6}
+                    className="mt-1"
                   />
                 </div>
                 

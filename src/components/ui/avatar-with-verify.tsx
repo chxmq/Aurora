@@ -1,6 +1,6 @@
-
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BadgeCheck } from "lucide-react";
+import { getGatewayUrl } from "@/lib/utils";
 
 interface AvatarWithVerifyProps {
   src: string;
@@ -31,10 +31,21 @@ export function AvatarWithVerify({
     lg: "h-6 w-6 -bottom-1 -right-1",
   };
 
+  const avatarSrc = getGatewayUrl(src);
+
   return (
     <div className={`relative ${className}`}>
       <Avatar className={`${sizeClasses[size]}`}>
-        <AvatarImage src={src} alt={fallback} />
+        <AvatarImage 
+          src={avatarSrc} 
+          alt={fallback} 
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            if (!target.src.includes('/placeholder.svg')) {
+              target.src = '/placeholder.svg';
+            }
+          }}
+        />
         <AvatarFallback>{fallback.slice(0, 2).toUpperCase()}</AvatarFallback>
       </Avatar>
       {isVerified && (

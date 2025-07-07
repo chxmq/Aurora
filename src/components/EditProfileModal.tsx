@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { User } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Upload } from "lucide-react";
+import { uploadImageToPinata } from "@/lib/pinataStorage";
 
 interface EditProfileModalProps {
   user: User;
@@ -57,7 +58,7 @@ export default function EditProfileModal({
     setFormData(prev => ({ ...prev, [name]: value }));
   };
   
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
@@ -71,15 +72,26 @@ export default function EditProfileModal({
       return;
     }
     
-    // Create a data URL for preview
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setPreviewImage(reader.result);
-        toast.success("Image preview loaded");
-      }
-    };
-    reader.readAsDataURL(file);
+    // Upload to Pinata
+    try {
+      toast.loading("Uploading avatar to Pinata...");
+      const imageHash = await uploadImageToPinata(file);
+      const ipfsUrl = `ipfs://${imageHash}`;
+      setFormData(prev => ({ ...prev, avatarUrl: ipfsUrl }));
+      toast.dismiss();
+      toast.success("Avatar uploaded to Pinata!");
+      // Show preview
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setPreviewImage(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      toast.dismiss();
+      toast.error("Failed to upload avatar to Pinata.");
+    }
   };
   
   const handleSubmit = (e: React.FormEvent) => {

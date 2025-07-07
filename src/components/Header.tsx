@@ -17,6 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useData } from "@/lib/DataProvider";
 
 export default function Header() {
   const isMobile = useIsMobile();
@@ -26,6 +27,7 @@ export default function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const { isConnected, connectWallet, disconnectWallet, address, balance } = useWallet();
+  const { currentUser } = useData();
   const searchRef = useRef<HTMLInputElement>(null);
   
   // Debounced search with loading state
@@ -178,7 +180,16 @@ export default function Header() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-10 w-10">
-                    <AvatarImage src="/placeholder.svg" alt="User" />
+                    <AvatarImage 
+                      src={currentUser?.avatar || "/placeholder.svg"}
+                      alt={currentUser?.displayName || "User"}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (!target.src.includes('/placeholder.svg')) {
+                          target.src = '/placeholder.svg';
+                        }
+                      }}
+                    />
                     <AvatarFallback>UN</AvatarFallback>
                   </Avatar>
                 </Button>

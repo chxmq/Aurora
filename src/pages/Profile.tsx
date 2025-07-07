@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
-import { mockUsers, mockTracks, mockPosts, addPost, getUserByWalletAddress, getPopulatedPosts, updateUser, initializeIfEmpty } from "@/lib/mockData";
+import { mockUsers, mockTracks, mockPosts, addPost, getUserByWalletAddress, getPopulatedPosts, updateUser, initializeIfEmpty, getTracks } from "@/lib/mockData";
 import { User, Track, Post } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AvatarWithVerify } from "@/components/ui/avatar-with-verify";
@@ -85,7 +85,7 @@ export default function ProfilePage() {
         setUser(userData);
         
         // Get user's tracks
-        const tracks = mockTracks.filter(track => track.artist.id === userData?.id);
+        const tracks = getTracks().filter(track => track.artist.id === userData?.id);
         setUserTracks(tracks);
         
         // Get user's posts
@@ -202,7 +202,7 @@ export default function ProfilePage() {
   const handleTrackDelete = () => {
     // Refresh user's tracks
     if (user) {
-      const tracks = mockTracks.filter(track => track.artist.id === user.id);
+      const tracks = getTracks().filter(track => track.artist.id === user.id);
       setUserTracks(tracks);
     }
   };

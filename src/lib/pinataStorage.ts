@@ -2,7 +2,7 @@ import axios from 'axios';
 import { User, Track, Post } from './types';
 
 const PINATA_API_URL = 'https://api.pinata.cloud';
-const PINATA_GATEWAY = 'https://gateway.pinata.cloud/ipfs/';
+export const PINATA_GATEWAY = 'https://gateway.pinata.cloud/ipfs/';
 
 interface PinataConfig {
   apiKey: string;
@@ -250,4 +250,53 @@ const getContentType = (filename: string) => {
   if (['jpg', 'jpeg', 'png', 'gif'].includes(extension || '')) return 'Image';
   
   return 'Other';
-}; 
+};
+
+/**
+ * Fetches the global index file (e.g., posts.json, tracks.json, users.json) from Pinata.
+ * Returns an array of hashes (or objects if you want to store full objects inline).
+ */
+export async function getGlobalIndex(type: 'post' | 'track' | 'user'): Promise<string[]> {
+  const indexName = `sai-music-app_${type}s.json`;
+  try {
+    // Hardcoded initial index hashes for each type (update these as needed)
+    const initialHashes: Record<string, string> = {
+      post: 'QmYourPostsJsonHashHere', // <-- Replace with your actual posts.json hash from Pinata
+      track: '',
+      user: ''
+    };
+    const hashKey = `pinata_index_hash_${type}`;
+    let indexHash = localStorage.getItem(hashKey) || initialHashes[type];
+    if (!indexHash) {
+      throw new Error('Index hash not found for ' + type);
+    }
+    const url = `https://gateway.pinata.cloud/ipfs/${indexHash}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch global index');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching global index:', error);
+    return [];
+  }
+}
+
+/**
+ * Updates the global index file on Pinata by adding a new hash.
+ * Uploads the new index and stores the new hash in localStorage.
+ */
+export async function updateGlobalIndex(type: 'post' | 'track' | 'user', hash: string): Promise<void> {
+  const indexName = `sai-music-app_${type}s.json`;
+  const hashKey = `pinata_index_hash_${type}`;
+  let index: string[] = [];
+  try {
+    index = await getGlobalIndex(type);
+  } catch {
+    index = [];
+  }
+  if (!index.includes(hash)) {
+    index.push(hash);
+  }
+  // Upload the updated index to Pinata
+  const newHash = await uploadJSONToPinata(index, indexName);
+  localStorage.setItem(hashKey, newHash);
+} 
