@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { getGatewayUrl } from "@/lib/utils";
 
 // Default images and tracks for fallbacks
 const DEFAULT_IMAGES = [
@@ -93,8 +94,7 @@ export default function PostCard({ post, onDelete, className }: PostCardProps) {
             const storedUrl = getFileUrl(fileId);
             url = storedUrl || getRandomDefaultImage();
           } else if (post.image.startsWith('ipfs://')) {
-            const ipfsGateway = 'https://ipfs.io/ipfs/';
-            url = post.image.replace('ipfs://', ipfsGateway);
+            url = getGatewayUrl(post.image);
           }
           setImageUrl(url);
         } catch (error) {
@@ -238,24 +238,6 @@ export default function PostCard({ post, onDelete, className }: PostCardProps) {
       
       <div className="mb-4">
         <p className="whitespace-pre-line">{post.content}</p>
-        
-        <div 
-          className="flex items-center mt-3 p-2 bg-music-primary/10 rounded-lg cursor-pointer hover:bg-music-primary/20"
-          onClick={handlePlayTrack}
-        >
-          <img 
-            src={currentTrack.coverArt} 
-            alt={currentTrack.title}
-            className="w-10 h-10 rounded mr-3"
-          />
-          <div>
-            <p className="text-sm font-medium">{currentTrack.title}</p>
-            <p className="text-xs text-muted-foreground">{currentTrack.artist.displayName}</p>
-          </div>
-          <Button variant="ghost" size="icon" className="ml-auto">
-            <Music className="h-4 w-4 text-music-primary" />
-          </Button>
-        </div>
       </div>
       
       {imageUrl && (

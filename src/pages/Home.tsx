@@ -3,15 +3,19 @@ import Layout from '../components/Layout';
 import CreatePostForm from '../components/CreatePostForm';
 import PostCard from '../components/PostCard';
 import { Post, User } from '@/lib/types';
-import { getPopulatedPosts } from '@/lib/mockData';
+import { getAllPostsFromPinata } from '@/lib/mockData';
 
 export default function HomePage() {
   const [posts, setPosts] = useState<(Post & { user: User })[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Load posts function
-  const loadPosts = useCallback(() => {
-    const allPosts = getPopulatedPosts();
-    setPosts(allPosts);
+  const loadPosts = useCallback(async () => {
+    setLoading(true);
+    const allPosts = await getAllPostsFromPinata();
+    // Optionally, populate user info if needed
+    setPosts(allPosts as any);
+    setLoading(false);
   }, []);
 
   // Load initial posts and set up refresh interval
@@ -42,7 +46,11 @@ export default function HomePage() {
         <CreatePostForm onPostCreated={handleNewPost} />
         
         <div className="mt-6 space-y-6">
-          {posts.length > 0 ? (
+          {loading ? (
+            <div className="text-center py-10 bg-secondary/20 rounded-xl">
+              <p className="text-muted-foreground">Loading posts...</p>
+            </div>
+          ) : posts.length > 0 ? (
             posts.map((post) => (
               <PostCard 
                 key={post.id} 

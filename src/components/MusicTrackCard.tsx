@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Track } from "@/lib/types";
 import { Link } from "react-router-dom";
 import { Play, Pause, Heart, MessageSquare, MoreHorizontal, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getGatewayUrl } from "@/lib/utils";
 import { playTrack, pauseTrack, getCurrentTrackId, getIsPlaying } from "./MusicPlayer";
 import { audioStore } from "./MusicPlayer";
 import { toast } from "sonner";
@@ -144,14 +144,14 @@ export default function MusicTrackCard({ track, compact = false, index, onDelete
         <div className="flex flex-col md:flex-row md:h-[150px]">
           <div className="relative md:w-[150px] h-[150px] bg-secondary group">
             <img 
-              src="/images/music-cover.jpg" 
+              src={getGatewayUrl(track.coverArt)}
               alt={track.title}
               className="w-full h-full object-cover"
               onError={(e) => {
-                // Fallback to track.coverArt if the default image fails to load
+                // Fallback to a default image if the cover art fails to load
                 const target = e.target as HTMLImageElement;
-                if (target.src !== track.coverArt) {
-                  target.src = track.coverArt;
+                if (!target.src.includes('default-track-fallback.jpg')) {
+                  target.src = '/images/music-cover.jpg';
                 }
               }}
             />
@@ -222,6 +222,14 @@ export default function MusicTrackCard({ track, compact = false, index, onDelete
           </div>
         </div>
         
+        {/* Audio player for direct playback */}
+        <audio
+          controls
+          src={track.audioUrl}
+          style={{ width: "100%", marginTop: "1rem" }}
+        >
+          Your browser does not support the audio element.
+        </audio>
         {showComments && (
           <div className="p-4 border-t">
             <CommentSection 

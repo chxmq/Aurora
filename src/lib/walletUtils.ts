@@ -39,25 +39,25 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
             return;
           }
           
-          // Request accounts
-          const accounts = await window.ethereum.request({
-            method: "eth_accounts",
-          });
-          
-          if (accounts.length > 0) {
-            setAddress(accounts[0]);
-            setIsConnected(true);
-            
-            // Get balance
-            const balance = await window.ethereum.request({
-              method: "eth_getBalance",
-              params: [accounts[0], "latest"],
+            // Request accounts
+            const accounts = await window.ethereum.request({
+              method: "eth_accounts",
             });
             
-            const ethBalance = parseInt(balance, 16) / 1e18;
-            setBalance(ethBalance.toFixed(4));
-          } else {
-            // No accounts found but localStorage says connected
+            if (accounts.length > 0) {
+              setAddress(accounts[0]);
+              setIsConnected(true);
+              
+              // Get balance
+              const balance = await window.ethereum.request({
+                method: "eth_getBalance",
+                params: [accounts[0], "latest"],
+              });
+              
+              const ethBalance = parseInt(balance, 16) / 1e18;
+              setBalance(ethBalance.toFixed(4));
+            } else {
+              // No accounts found but localStorage says connected
             setIsConnected(false);
             localStorage.removeItem("walletConnected");
             toast.error("No connected accounts found. Please connect your wallet.");
@@ -128,15 +128,32 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
-    // For demo, just mock a successful transaction
-    toast.loading("Processing transaction...");
-    
-    // Simulate transaction delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    toast.dismiss();
-    toast.success(`Successfully sent ${amount} ETH to ${artistAddress.substring(0, 6)}...`);
-    callback();
+    try {
+      toast.loading("Processing transaction...");
+      // Convert ETH to Wei
+      const valueWei = (BigInt(Math.floor(parseFloat(amount) * 1e18))).toString(16);
+      const txParams = {
+        from: address,
+        to: artistAddress,
+        value: '0x' + valueWei,
+      };
+      // Send transaction
+      const txHash = await window.ethereum.request({
+        method: 'eth_sendTransaction',
+        params: [txParams],
+      });
+      toast.dismiss();
+      toast.success(`Transaction sent! Hash: ${txHash.substring(0, 10)}...`);
+      callback();
+    } catch (error: any) {
+      toast.dismiss();
+      if (error && error.message) {
+        toast.error(`Transaction failed: ${error.message}`);
+      } else {
+        toast.error("Transaction failed");
+      }
+      console.error("Error sending ETH:", error);
+    }
   };
   
   // Prepare context value

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Layout from "@/components/Layout";
-import { mockUsers, mockTracks } from "@/lib/mockData";
+import { mockUsers, mockTracks, getTracks } from "@/lib/mockData";
+import { getUsers } from "@/lib/localStorage";
 import { AvatarWithVerify } from "@/components/ui/avatar-with-verify";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,13 +9,26 @@ import MusicTrackCard from "@/components/MusicTrackCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function ExplorePage() {
-  const [allUsers] = useState(mockUsers);
-  const [featuredUsers] = useState([...mockUsers].sort(() => Math.random() - 0.5));
+  const [allUsers, setAllUsers] = useState(getUsers());
+  const [featuredUsers, setFeaturedUsers] = useState([...getUsers()].sort(() => Math.random() - 0.5));
+  const [allTracks, setAllTracks] = useState(getTracks());
   const [activeTab, setActiveTab] = useState("featured");
+
+  // Poll for new users and tracks every 10 seconds
+  useEffect(() => {
+    const poll = () => {
+      const users = getUsers();
+      setAllUsers(users);
+      setFeaturedUsers([...users].sort(() => Math.random() - 0.5));
+      setAllTracks(getTracks());
+    };
+    const interval = setInterval(poll, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Sort tracks by different criteria
   const verifiedArtists = allUsers.filter(user => user.isVerified);
-  const risingStars = [...mockTracks]
+  const risingStars = [...allTracks]
     .sort((a, b) => {
       const aGrowth = (a.likes + a.plays) / ((Date.now() - new Date(a.createdAt).getTime()) / (1000 * 60 * 60 * 24));
       const bGrowth = (b.likes + b.plays) / ((Date.now() - new Date(b.createdAt).getTime()) / (1000 * 60 * 60 * 24));
@@ -22,9 +36,9 @@ export default function ExplorePage() {
     })
     .slice(0, 8);
 
-  const popularTracks = [...mockTracks].sort((a, b) => b.plays - a.plays).slice(0, 8);
-  const trendingTracks = [...mockTracks].sort((a, b) => b.likes - a.likes).slice(0, 8);
-  const newTracks = [...mockTracks]
+  const popularTracks = [...allTracks].sort((a, b) => b.plays - a.plays).slice(0, 8);
+  const trendingTracks = [...allTracks].sort((a, b) => b.likes - a.likes).slice(0, 8);
+  const newTracks = [...allTracks]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 8);
 

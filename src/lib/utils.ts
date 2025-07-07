@@ -1,4 +1,3 @@
-
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
  
@@ -24,4 +23,14 @@ export function formatNumber(num: number): string {
 
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 15);
+}
+
+/**
+ * Converts an ipfs:// URL to a Pinata gateway URL, or returns the original URL if not ipfs.
+ */
+export function getGatewayUrl(url: string): string {
+  if (url && url.startsWith('ipfs://')) {
+    return url.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+  }
+  return url;
 }

@@ -19,6 +19,7 @@ import { mockTracks } from "@/lib/mockData";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { getFileUrl } from "@/lib/fileStorage";
+import { getGatewayUrl } from "@/lib/utils";
 
 interface MusicPlayerProps {
   className?: string;
@@ -159,9 +160,7 @@ export const audioStore = {
           // Handle absolute paths that work across all routes
           audioUrl = audioUrl;
         } else if (audioUrl.startsWith('ipfs://')) {
-          // Handle IPFS URLs (you'll need to implement IPFS gateway URL conversion)
-          const ipfsGateway = 'https://ipfs.io/ipfs/';
-          audioUrl = audioUrl.replace('ipfs://', ipfsGateway);
+          audioUrl = getGatewayUrl(audioUrl);
         }
 
         this.audioElement.src = audioUrl;

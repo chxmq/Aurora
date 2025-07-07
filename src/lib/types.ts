@@ -6,6 +6,8 @@ export interface User {
   isVerified: boolean;
   followers: number;
   following: number;
+  followersList?: string[];
+  followingList?: string[];
   posts: number;
   bio?: string;
   walletAddress?: string;
@@ -20,6 +22,8 @@ export interface Post {
   likes: number;
   comments: number;
   user?: User;
+  likedBy?: string[];
+  commentsList?: Comment[];
 }
 
 export interface PostInput {
@@ -40,6 +44,9 @@ export interface Track {
   plays: number;
   createdAt: string;
   duration: number;
+  lyrics?: string;
+  likedBy?: string[];
+  commentsList?: Comment[];
 }
 
 export interface TrackInput {
@@ -53,6 +60,7 @@ export interface TrackInput {
   plays: number;
   createdAt: string;
   duration: number;
+  lyrics?: string;
 }
 
 export interface Comment {

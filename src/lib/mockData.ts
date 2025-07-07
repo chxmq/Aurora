@@ -16,7 +16,10 @@ import {
   saveUserToPinata,
   uploadImageToPinata,
   uploadAudioToPinata,
-  unpinFromPinata
+  unpinFromPinata,
+  updateGlobalIndex,
+  getGlobalIndex,
+  getContentFromPinata
 } from './pinataStorage';
 
 // Initialize with mock data if local storage is empty
@@ -31,7 +34,7 @@ const initMockUsers: User[] = [
     following: 350,
     posts: 42,
     bio: "Music producer and DJ based in LA. Creating vibes since 2010.",
-    walletAddress: "0x123"
+    walletAddress: "0xeCd5dFD2cF4F4A76dDCacCc9d3580a2363CBB30f"
   },
   {
     id: "2",
@@ -652,6 +655,8 @@ export const addPost = async (postInput: PostInput): Promise<Post> => {
           type: 'post',
           timestamp: Date.now()
         });
+        // Update global posts index
+        await updateGlobalIndex('post', hash);
       } catch (pinataError) {
         console.warn('Failed to save to Pinata, continuing with local storage:', pinataError);
       }
@@ -1198,3 +1203,27 @@ export const generatePlaylist = (userId: string, duration: number, maxTracks: nu
   const tracks = getTracks();
   return generateOptimalPlaylist(tracks, duration, maxTracks);
 };
+
+export { getTracks } from './localStorage';
+
+/**
+ * Fetch all posts from Pinata using the global posts index.
+ */
+export async function getAllPostsFromPinata(): Promise<Post[]> {
+  try {
+    const postHashes = await getGlobalIndex('post');
+    const posts: Post[] = [];
+    for (const hash of postHashes) {
+      try {
+        const post = await getContentFromPinata<Post>(hash);
+        posts.push(post);
+      } catch (e) {
+        console.warn('Failed to fetch post from Pinata:', hash, e);
+      }
+    }
+    return posts;
+  } catch (e) {
+    console.error('Error fetching all posts from Pinata:', e);
+    return [];
+  }
+}
