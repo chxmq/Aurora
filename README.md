@@ -1,46 +1,29 @@
-# 🎵 Aurora – Decentralized Music Platform
+# DMusic App
 
-[![Build](https://img.shields.io/github/actions/workflow/status/tallamSai/dmusic-app/main.yml?branch=yash&style=flat-square)](https://github.com/tallamSai/dmusic-app/actions)
-[![License](https://img.shields.io/github/license/tallamSai/dmusic-app?style=flat-square)](LICENSE)
+DMusic App is a modern, decentralized music sharing and streaming platform. It allows users to upload, discover, and listen to music tracks, interact with artists, and participate in a vibrant music community. The app leverages decentralized storage solutions for music files and provides a social experience with features like comments, tips, and following artists.
 
-Welcome to **Aurora** – a next-generation, decentralized music platform built with blockchain and IPFS. Share, discover, and monetize music with a stunning, Apple-quality UI and seamless Web3 integration.
+## Features
+- 🎵 Stream and discover music tracks
+- 🚀 Upload your own music
+- 💬 Comment on tracks and posts
+- 💸 Tip your favorite artists
+- 🔍 Search for tracks, artists, and genres
+- 🏆 Explore trending and viral sounds
+- 🗂️ Decentralized storage integration (IPFS, Pinata)
+- 👤 User profiles and social features
+- 📱 Responsive design for mobile and desktop
 
----
+## Getting Started
 
-## 🚀 Features
+### Prerequisites
+- [Node.js](https://nodejs.org/) (v18 or higher recommended)
+- [Bun](https://bun.sh/) (if using Bun for development)
 
-- 🎧 **Decentralized Music Sharing** – Upload, stream, and collect music NFTs
-- 🔒 **Blockchain & Pinata Integration** – Secure, censorship-resistant storage
-- 🦄 **Artist Monetization** – Tip artists, collect NFTs, and support creators directly
-- 🏆 **Social Features** – Posts, comments, notifications, and following
-- 🌗 **Dark/Light Mode** – Seamless theme switching
-- 📱 **Responsive** – Works beautifully on all devices
-
----
-
-## 🛠️ Tech Stack
-
-- **Frontend:** React + TypeScript + Vite
-- **Styling:** Tailwind CSS + Custom Animations
-- **Web3:** Ethereum Wallet (MetaMask), Pinata, IPFS
-- **State:** React Context, LocalStorage
-- **Notifications:** Sonner
-
----
-
-## 📸 Screenshots
-
-> _Add your screenshots here!_
-
----
-
-## ⚡ Quick Start
-
-1. **Clone the repo:**
+### Installation
+1. **Clone the repository:**
    ```bash
-   git clone https://github.com/tallamSai/dmusic-app.git
+   git clone https://github.com/yourusername/dmusic-app.git
    cd dmusic-app
-   git checkout yash
    ```
 2. **Install dependencies:**
    ```bash
@@ -48,41 +31,38 @@ Welcome to **Aurora** – a next-generation, decentralized music platform built 
    # or
    bun install
    ```
-3. **Run the app locally:**
+3. **Start the development server:**
    ```bash
    npm run dev
    # or
    bun run dev
    ```
-4. **Build for production:**
-   ```bash
-   npm run build
-   # or
-   bun run build
-   ```
+4. **Open your browser:**
+   Visit [http://localhost:5173](http://localhost:5173) to view the app.
 
----
+## Project Structure
+```
+src/
+  components/      # Reusable UI and feature components
+  hooks/           # Custom React hooks
+  lib/             # Utility libraries and storage providers
+  music/           # Sample music files
+  pages/           # Main app pages/routes
+  App.tsx          # Main app component
+  main.tsx         # App entry point
+```
 
-## 🔑 Environment & Configuration
+## Usage
+- **Upload Music:** Go to the Create page and upload your music files.
+- **Explore:** Browse trending tracks and discover new artists on the Explore and Viral Sounds pages.
+- **Interact:** Comment on tracks, tip artists, and follow users to build your music network.
+- **Profile:** Edit your profile and view your uploads and activity.
 
-- No backend server required – all data is stored on IPFS/Pinata and in browser localStorage.
-- To enable blockchain features, connect your MetaMask wallet.
-- Pinata API keys can be configured in `src/lib/pinataStorage.ts` if you want to use your own gateway.
-
----
-
-## 🤝 Contributing
-
-Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
-
----
-
-## 📄 License
-
-[MIT](LICENSE)
-
----
 
 ## 🌟 Credits
 
 - Built with ❤️ by [@chxmq](https://github.com/chxmq) and [@tallamSai](https://github.com/tallamSai)
+
+
+## License
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
