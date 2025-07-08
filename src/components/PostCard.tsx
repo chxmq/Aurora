@@ -141,12 +141,14 @@ export default function PostCard({ post, onDelete, className }: PostCardProps) {
 
   const handlePlayTrack = () => {
     try {
-      playTrack(currentTrack.id);
+      // Show notification immediately
       toast.success(`Now playing: ${currentTrack.title}`);
+      playTrack(currentTrack.id);
     } catch (error) {
       console.error('Error playing track:', error);
       const defaultTrack = getRandomDefaultTrack();
       setCurrentTrack(defaultTrack);
+      toast.success(`Now playing: ${defaultTrack.title}`);
       playTrack(defaultTrack.id);
     }
   };
