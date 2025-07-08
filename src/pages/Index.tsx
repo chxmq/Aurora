@@ -47,6 +47,11 @@ export default function Index() {
         <div className="absolute inset-0 bg-gradient-to-r from-brand-50/50 via-violet-50/30 to-purple-50/50 dark:from-brand-950/30 dark:via-violet-950/20 dark:to-purple-950/30 rounded-3xl"></div>
         <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
         
+        {/* Mock data label */}
+        <div className="relative z-20 px-8 pt-6 pb-2">
+          <span className="text-xs text-gray-500 dark:text-gray-400 italic">*Stats shown are mock data for demo purposes</span>
+        </div>
+        
         <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-8 p-8">
           {[
             { 
