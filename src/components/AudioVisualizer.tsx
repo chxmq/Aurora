@@ -6,13 +6,17 @@ interface AudioVisualizerProps {
   isPlaying: boolean;
   type?: 'waveform' | 'spectrum' | 'circular';
   className?: string;
+  width?: number;
+  height?: number;
 }
 
 export default function AudioVisualizer({ 
   analyserNode, 
   isPlaying, 
   type = 'spectrum',
-  className 
+  className,
+  width,
+  height
 }: AudioVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>();
@@ -176,13 +180,13 @@ export default function AudioVisualizer({
     <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
       <canvas
         ref={canvasRef}
-        width={type === 'circular' ? 140 : 220}
-        height={type === 'circular' ? 140 : 70}
+        width={width ?? (type === 'circular' ? 140 : 220)}
+        height={height ?? (type === 'circular' ? 140 : 70)}
         className={cn(
           'rounded-lg bg-black/20 backdrop-blur-sm scale-90',
           className
         )}
-        style={{ maxWidth: type === 'circular' ? 160 : 240 }}
+        style={{ maxWidth: width ?? (type === 'circular' ? 160 : 240) }}
       />
     </div>
   );

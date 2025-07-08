@@ -861,19 +861,23 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
               
               <div className="h-64 overflow-hidden">
                 <TabsContent value="visualizer" className="h-full m-0 p-4">
-                  <div className="flex flex-col md:flex-row items-center justify-center gap-8 w-full max-w-5xl mx-auto py-8 px-2 md:px-8">
+                  <div className="flex flex-col md:flex-row items-center justify-center gap-8 w-full max-w-5xl mx-auto pt-0 pb-0 px-0 md:px-0" style={{marginTop: 0}}>
                     {/* Spectrum Visualizer - Large Wide Card */}
-                    <div className="flex flex-col items-center justify-center bg-white/60 dark:bg-black/40 rounded-3xl shadow-xl border border-white/30 dark:border-gray-800/40 p-6 md:p-8 backdrop-blur-md transition-all duration-300 w-full max-w-3xl min-h-[220px] mr-0 md:mr-6" style={{ flex: 2 }}>
-                      <AudioVisualizer 
-                        analyserNode={audioStore.analyserNode}
-                        isPlaying={isPlaying}
-                        type="spectrum"
-                        className="w-full h-full"
-                      />
+                    <div className="flex flex-col items-center justify-center bg-white/60 dark:bg-black/40 rounded-3xl shadow-xl border border-white/30 dark:border-gray-800/40 p-0 md:p-0 backdrop-blur-md transition-all duration-300 w-full max-w-4xl mr-0 md:mr-6" style={{ flex: 2 }}>
+                      <div className="flex items-center justify-center w-full" style={{ minHeight: 180 }}>
+                        <AudioVisualizer 
+                          analyserNode={audioStore.analyserNode}
+                          isPlaying={isPlaying}
+                          type="spectrum"
+                          className="w-full"
+                          width={600}
+                          height={180}
+                        />
+                      </div>
                       <span className="mt-4 text-base font-semibold text-gray-800 dark:text-gray-100 tracking-wide drop-shadow-sm">Spectrum</span>
                     </div>
                     {/* Circular Visualizer - Square Card */}
-                    <div className="flex flex-col items-center justify-center bg-white/60 dark:bg-black/40 rounded-3xl shadow-xl border border-white/30 dark:border-gray-800/40 p-6 md:p-8 backdrop-blur-md transition-all duration-300 w-full max-w-xs min-h-[220px] mt-8 md:mt-0" style={{ flex: 1 }}>
+                    <div className="flex flex-col items-center justify-center bg-white/60 dark:bg-black/40 rounded-3xl shadow-xl border border-white/30 dark:border-gray-800/40 p-0 md:p-0 backdrop-blur-md transition-all duration-300 w-full max-w-xs mt-0 md:mt-0" style={{ flex: 1 }}>
                       <AudioVisualizer 
                         analyserNode={audioStore.analyserNode}
                         isPlaying={isPlaying}

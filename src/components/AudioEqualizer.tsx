@@ -188,7 +188,7 @@ export default function AudioEqualizer({
   };
 
   return (
-    <div className={cn('p-2 bg-secondary/20 rounded-xl space-y-2 scale-90', className)} style={{ maxWidth: 900, margin: '0 auto' }}>
+    <div className={cn('p-1 bg-secondary/20 rounded-xl space-y-2 scale-90', className)} style={{ maxWidth: 900, margin: '0 auto', marginTop: 0, paddingTop: 0 }}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold">Equalizer</h3>
