@@ -45,6 +45,7 @@
   --transition-fast: 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --transition-normal: 250ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --transition-slow: 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-theme: 500ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .dark {
@@ -74,6 +75,31 @@
   --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 }
 
+/* Theme transition styles */
+html {
+  transition: none;
+}
+
+html.theme-transitioning {
+  transition: background-color var(--transition-theme), color var(--transition-theme);
+}
+
+html.theme-transitioning * {
+  transition: background-color var(--transition-theme), 
+              color var(--transition-theme), 
+              border-color var(--transition-theme),
+              box-shadow var(--transition-theme),
+              fill var(--transition-theme),
+              stroke var(--transition-theme) !important;
+}
+
+/* Preserve specific transitions during theme change */
+html.theme-transitioning .btn-primary,
+html.theme-transitioning .btn-ghost,
+html.theme-transitioning .interactive {
+  transition: all var(--transition-theme) !important;
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -91,7 +117,6 @@
     @apply bg-background text-foreground;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-optical-sizing: auto;
-    transition: background-color var(--transition-normal), color var(--transition-normal);
   }
   
   /* Custom scrollbar */
@@ -229,7 +254,7 @@
   }
   
   /* Animation utilities */
-  .animate-fade-in-up {
+  .animate-fade-up {
     animation: fade-up 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
   }
   
@@ -239,6 +264,49 @@
   
   .animate-slide-in-right {
     animation: slide-in-right 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  }
+  
+  .animate-slide-in-left {
+    animation: slide-in-left 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  }
+  
+  .animate-rotate-in {
+    animation: rotate-in 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  }
+  
+  .animate-rotate-out {
+    animation: rotate-out 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  }
+  
+  /* Animation delays */
+  .delay-100 {
+    animation-delay: 100ms;
+  }
+  
+  .delay-200 {
+    animation-delay: 200ms;
+  }
+  
+  .delay-300 {
+    animation-delay: 300ms;
+  }
+  
+  .delay-400 {
+    animation-delay: 400ms;
+  }
+  
+  /* Smooth shadow transitions */
+  .shadow-glow {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+    transition: box-shadow var(--transition-normal);
+  }
+  
+  .shadow-glow-lg {
+    box-shadow: 0 0 40px rgba(139, 92, 246, 0.5);
+  }
+  
+  .shadow-luxury {
+    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.1);
   }
 }
 
@@ -386,4 +454,359 @@
   50% {
     opacity: 0.5;
   }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes rotate-in {
+  from {
+    transform: rotate(-90deg) scale(0);
+  }
+  to {
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+@keyframes rotate-out {
+  from {
+    transform: rotate(0deg) scale(1);
+  }
+  to {
+    transform: rotate(90deg) scale(0);
+  }
+}
+
+/* Enhanced shadow utilities for music player */
+.shadow-3xl {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+}
+
+.shadow-glow-primary {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.4), 0 0 40px rgba(139, 92, 246, 0.2);
+}
+
+/* Music player specific animations */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(139, 92, 246, 0.6);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Enhanced button hover effects */
+.music-button {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.music-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.music-button:hover::before {
+  opacity: 1;
+}
+
+/* Slider enhancements */
+.slider-track {
+  background: linear-gradient(90deg, 
+    rgba(139, 92, 246, 0.1) 0%, 
+    rgba(139, 92, 246, 0.3) 50%, 
+    rgba(139, 92, 246, 0.1) 100%
+  );
+}
+
+/* Glass morphism enhancement for music player */
+.music-player-glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Progress bar glow effect */
+.progress-glow {
+  position: relative;
+}
+
+.progress-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.4), transparent);
+  filter: blur(4px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.progress-glow:hover::after {
+  opacity: 1;
+}
+
+/* Music visualizer dots */
+@keyframes music-visualizer {
+  0%, 100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(2);
+  }
+}
+
+.music-visualizer-dot {
+  animation: music-visualizer 1.5s ease-in-out infinite;
+}
+
+.music-visualizer-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.music-visualizer-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* Rainbow gradient for music player progress bar */
+@keyframes rainbow-progress {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.rainbow-progress-bar {
+  background: linear-gradient(
+    90deg,
+    #ff4757,
+    #ffa502,
+    #7bed9f,
+    #70a1ff,
+    #5352ed,
+    #ff6b81,
+    #2ed573,
+    #ff4757
+  ) !important;
+  background-size: 300% 100% !important;
+  animation: rainbow-progress 12s ease-in-out infinite !important;
+  position: relative;
+  box-shadow: 0 0 8px rgba(255, 71, 87, 0.4) !important;
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+.rainbow-progress-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 71, 87, 0.9),
+    rgba(255, 165, 2, 0.9),
+    rgba(123, 237, 159, 0.9),
+    rgba(112, 161, 255, 0.9),
+    rgba(83, 82, 237, 0.9),
+    rgba(255, 107, 129, 0.9),
+    rgba(46, 213, 115, 0.9),
+    rgba(255, 71, 87, 0.9)
+  ) !important;
+  background-size: 300% 100% !important;
+  animation: rainbow-progress 8s ease-in-out infinite reverse !important;
+  mix-blend-mode: multiply;
+  opacity: 0.8;
+  z-index: 1;
+}
+
+/* Enhanced transitions */
+.transition-magic {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-bounce {
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Rainbow gradient bar animation */
+@keyframes rainbow-slide {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes rainbow-glow {
+  0%, 100% {
+    filter: blur(0px) brightness(1);
+  }
+  50% {
+    filter: blur(1px) brightness(1.2);
+  }
+}
+
+.rainbow-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    #ff0000,
+    #ff7f00,
+    #ffff00,
+    #00ff00,
+    #0000ff,
+    #4b0082,
+    #9400d3,
+    #ff0000
+  );
+  background-size: 400% 100%;
+  animation: rainbow-slide 8s ease-in-out infinite;
+  z-index: 9999;
+  opacity: 0.8;
+}
+
+.rainbow-bar-subtle {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.3),
+    rgba(255, 127, 0, 0.3),
+    rgba(255, 255, 0, 0.3),
+    rgba(0, 255, 0, 0.3),
+    rgba(0, 0, 255, 0.3),
+    rgba(75, 0, 130, 0.3),
+    rgba(148, 0, 211, 0.3),
+    rgba(255, 0, 0, 0.3)
+  );
+  background-size: 400% 100%;
+  animation: rainbow-slide 12s ease-in-out infinite;
+  z-index: 9998;
+}
+
+.rainbow-accent {
+  background: linear-gradient(
+    45deg,
+    #ff0000,
+    #ff7f00,
+    #ffff00,
+    #00ff00,
+    #0000ff,
+    #4b0082,
+    #9400d3
+  );
+  background-size: 300% 300%;
+  animation: rainbow-slide 6s ease-in-out infinite;
+}
+
+/* Floating rainbow orbs */
+@keyframes float-rainbow {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-20px) translateX(10px) rotate(90deg);
+  }
+  50% {
+    transform: translateY(-10px) translateX(-10px) rotate(180deg);
+  }
+  75% {
+    transform: translateY(-30px) translateX(5px) rotate(270deg);
+  }
+}
+
+.rainbow-orb {
+  position: fixed;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3);
+  background-size: 200% 200%;
+  animation: rainbow-slide 4s ease-in-out infinite, float-rainbow 15s ease-in-out infinite;
+  opacity: 0.8;
+  z-index: 10;
+  pointer-events: none;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.rainbow-orb-large {
+  position: fixed;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3);
+  background-size: 300% 300%;
+  animation: rainbow-slide 6s ease-in-out infinite, float-rainbow 20s ease-in-out infinite;
+  opacity: 0.7;
+  z-index: 10;
+  pointer-events: none;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
 }

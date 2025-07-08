@@ -234,7 +234,7 @@ export default function ProfilePage() {
             fallback={user.displayName}
             isVerified={user.isVerified}
             size="lg"
-            className="h-20 w-20 md:h-24 md:w-24 ring-4 ring-background"
+            className="h-20 w-20 md:h-24 md:w-24 shadow-xl"
           />
           
           <div className="mt-4 md:mt-0 flex-1">

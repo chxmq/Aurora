@@ -14,7 +14,8 @@ import {
   Maximize2,
   ChevronUp,
   Share,
-  Download
+  Download,
+  Volume1
 } from "lucide-react";
 import { AvatarWithVerify } from "@/components/ui/avatar-with-verify";
 import { Button } from "@/components/ui/button";
@@ -43,20 +44,46 @@ interface MusicPlayerProps {
 // Create a single global audio instance
 const globalAudio = new Audio();
 globalAudio.preload = "auto";
+globalAudio.crossOrigin = "anonymous";
 
 // Add audio context for better control
-const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-const audioSource = audioContext.createMediaElementSource(globalAudio);
-const gainNode = audioContext.createGain();
-audioSource.connect(gainNode);
-gainNode.connect(audioContext.destination);
+let audioContext: AudioContext | null = null;
+let audioSource: MediaElementAudioSourceNode | null = null;
+let gainNode: GainNode | null = null;
+
+// Initialize audio context on first user interaction
+const initAudioContext = async () => {
+  if (!audioContext) {
+    try {
+      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioSource = audioContext.createMediaElementSource(globalAudio);
+      gainNode = audioContext.createGain();
+      audioSource.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      console.log('Audio context initialized');
+    } catch (error) {
+      console.error('Failed to initialize audio context:', error);
+    }
+  }
+  
+  if (audioContext && audioContext.state === 'suspended') {
+    try {
+      await audioContext.resume();
+      console.log('Audio context resumed');
+    } catch (error) {
+      console.error('Failed to resume audio context:', error);
+    }
+  }
+  
+  return audioContext;
+};
 
 export const audioStore = {
   currentTrackId: null as string | null,
   isPlaying: false,
   audioElement: globalAudio,
-  audioContext,
-  gainNode,
+  audioContext: null as AudioContext | null,
+  gainNode: null as GainNode | null,
   volume: 0.8,
   isMuted: false,
   isLooping: false,
@@ -89,17 +116,23 @@ export const audioStore = {
     let errorMessage = "An error occurred while playing audio.";
     
     if (error instanceof Error) {
+      console.error('Error message:', error.message);
       if (error.message.includes('source')) {
         errorMessage = "Could not load audio file. Please check your connection.";
       } else if (error.message.includes('aborted')) {
         errorMessage = "Audio playback was interrupted.";
       } else if (error.message.includes('network')) {
         errorMessage = "Network error. Please check your connection.";
+      } else if (error.message.includes('NotAllowedError')) {
+        errorMessage = "Audio playback not allowed. Please click to enable audio.";
+      } else if (error.message.includes('NotSupportedError')) {
+        errorMessage = "Audio format not supported by your browser.";
       }
     }
 
     if (error instanceof Event && error.target instanceof HTMLAudioElement) {
       const mediaError = error.target.error;
+      console.error('Media error details:', mediaError);
       if (mediaError) {
         switch (mediaError.code) {
           case MediaError.MEDIA_ERR_ABORTED:
@@ -112,24 +145,38 @@ export const audioStore = {
             errorMessage = "Audio file format not supported.";
             break;
           case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-            errorMessage = "Audio source not supported.";
+            errorMessage = "Audio source not supported or file not found.";
             break;
         }
       }
     }
 
-    toast.error(errorMessage);
+    // Only show error toast if it's not a user interaction issue
+    if (!errorMessage.includes('not allowed')) {
+      toast.error(errorMessage);
+    } else {
+      console.warn('Audio blocked by browser - user interaction required');
+    }
   },
 
   async initializeAudio() {
     try {
-      if (this.audioContext.state === 'suspended') {
+      // Initialize audio context on first use
+      this.audioContext = await initAudioContext();
+      this.gainNode = gainNode;
+      
+      // Resume audio context if it's suspended (required by browsers)
+      if (this.audioContext && this.audioContext.state === 'suspended') {
+        console.log('Resuming audio context...');
         await this.audioContext.resume();
       }
       
       // Ensure audio element is in a clean state
       this.audioElement.volume = this.isMuted ? 0 : this.volume;
       this.audioElement.loop = this.isLooping;
+      
+      console.log('Audio context state:', this.audioContext?.state);
+      console.log('Audio element ready state:', this.audioElement.readyState);
       
       return true;
     } catch (error) {
@@ -147,9 +194,12 @@ export const audioStore = {
 
       const track = mockTracks.find(t => t.id === trackId);
       if (!track) {
+        console.error('Track not found:', trackId);
         this.cleanup();
         return;
       }
+
+      console.log('Setting current track:', track.title, 'URL:', track.audioUrl);
 
       const isNewTrack = this.currentTrackId !== trackId;
       this.currentTrackId = trackId;
@@ -171,12 +221,17 @@ export const audioStore = {
           }
           audioUrl = storedUrl;
         } else if (audioUrl.startsWith('/')) {
-          // Handle absolute paths that work across all routes
+          // Handle absolute paths - these should work directly in the browser
           audioUrl = audioUrl;
+          console.log('Using direct path:', audioUrl);
         } else if (audioUrl.startsWith('ipfs://')) {
           audioUrl = getGatewayUrl(audioUrl);
+        } else if (!audioUrl.startsWith('http')) {
+          // Ensure relative paths are properly prefixed
+          audioUrl = `/${audioUrl}`;
         }
 
+        console.log('Final audio URL:', audioUrl);
         this.audioElement.src = audioUrl;
         
         // Wait for audio to be loaded
@@ -184,22 +239,28 @@ export const audioStore = {
           await new Promise((resolve, reject) => {
             const loadHandler = () => {
               this.audioElement.removeEventListener('error', errorHandler);
+              console.log('Audio loaded successfully');
               resolve(true);
             };
             
             const errorHandler = (e: Event) => {
               this.audioElement.removeEventListener('loadeddata', loadHandler);
+              console.error('Audio load error:', e);
               reject(e);
             };
 
             this.audioElement.addEventListener('loadeddata', loadHandler, { once: true });
             this.audioElement.addEventListener('error', errorHandler, { once: true });
+            
+            // Also listen for canplay event as fallback
+            this.audioElement.addEventListener('canplay', loadHandler, { once: true });
+            
             this.audioElement.load();
           });
         } catch (error) {
           console.error('Error loading audio:', error);
-          this.cleanup();
-          throw error;
+          // Try to continue anyway - sometimes the audio can still play
+          console.log('Attempting to play despite load error...');
         }
       }
 
@@ -215,13 +276,25 @@ export const audioStore = {
 
   async play() {
     try {
-      if (!this.currentTrackId) return;
+      if (!this.currentTrackId) {
+        console.error('No current track to play');
+        return;
+      }
       
+      console.log('Attempting to play audio...');
       await this.initializeAudio();
-      await this.audioElement.play();
+      
+      // Try to play the audio
+      const playPromise = this.audioElement.play();
+      if (playPromise !== undefined) {
+        await playPromise;
+        console.log('Audio playing successfully');
+      }
+      
       this.isPlaying = true;
       this.notifyListeners();
     } catch (error) {
+      console.error('Play error:', error);
       this.handleAudioError(error, 'playing');
     }
   },
@@ -383,25 +456,10 @@ export const audioStore = {
   }
 };
 
-// Set up global audio event listeners (these are intentionally global and don't need cleanup)
+// Set up global audio event listeners
 globalAudio.addEventListener('ended', () => {
   if (!audioStore.isLooping) {
-    // Move to next track if not looping
-    const currentIndex = mockTracks.findIndex(t => t.id === audioStore.currentTrackId);
-    if (currentIndex !== -1) {
-      let nextIndex;
-      if (audioStore.isShuffling) {
-        // Get random index excluding current track
-        const availableIndices = Array.from(
-          { length: mockTracks.length },
-          (_, i) => i
-        ).filter(i => i !== currentIndex);
-        nextIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
-      } else {
-        nextIndex = (currentIndex + 1) % mockTracks.length;
-      }
-      audioStore.setCurrentTrack(mockTracks[nextIndex].id);
-    }
+    audioStore.skipToNext();
   }
 });
 
@@ -417,15 +475,19 @@ globalAudio.addEventListener('error', (e) => {
   audioStore.handleAudioError(e, 'global error');
 });
 
+// Export utility functions
 export function playTrack(trackId: string) {
+  console.log('playTrack called with:', trackId);
   return audioStore.setCurrentTrack(trackId, true);
 }
 
 export function pauseTrack() {
+  console.log('pauseTrack called');
   audioStore.pause();
 }
 
 export function togglePlayPause() {
+  console.log('togglePlayPause called');
   return audioStore.togglePlay();
 }
 
@@ -478,67 +540,13 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
   const [isMuted, setIsMuted] = useState(audioStore.isMuted);
   const [isLooping, setIsLooping] = useState(audioStore.isLooping);
   const [isShuffling, setIsShuffling] = useState(audioStore.isShuffling);
-  const [trackIndex, setTrackIndex] = useState(0);
   const [buffered, setBuffered] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const progressBarRef = useRef<HTMLDivElement>(null);
-
-  // Add new states for UI
-  const [isHovering, setIsHovering] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [hoverPosition, setHoverPosition] = useState(0);
-
-  // Initialize audio element
-  useEffect(() => {
-    const audio = globalAudio;
-    audioRef.current = audio;
-    
-    // Clean up any existing audio elements
-    document.querySelectorAll('audio').forEach(existingAudio => {
-      if (existingAudio !== audio) {
-        existingAudio.pause();
-        existingAudio.currentTime = 0;
-        existingAudio.src = '';
-        existingAudio.remove();
-      }
-    });
-    
-    // Set up event listeners
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('loadedmetadata', handleLoadMetadata);
-    audio.addEventListener('ended', handleTrackEnd);
-    audio.addEventListener('play', () => {
-      setIsPlaying(true);
-      audioStore.isPlaying = true;
-    });
-    audio.addEventListener('pause', () => {
-      setIsPlaying(false);
-      audioStore.isPlaying = false;
-    });
-    audio.addEventListener('error', handleAudioError);
-    
-    // Set initial volume and loop state
-    audio.volume = audioStore.volume;
-    audio.loop = audioStore.isLooping;
-    
-    return () => {
-      audio.pause();
-      audio.currentTime = 0;
-      audio.src = '';
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('loadedmetadata', handleLoadMetadata);
-      audio.removeEventListener('ended', handleTrackEnd);
-      audio.removeEventListener('play', () => {
-        setIsPlaying(true);
-        audioStore.isPlaying = true;
-      });
-      audio.removeEventListener('pause', () => {
-        setIsPlaying(false);
-        audioStore.isPlaying = false;
-      });
-      audio.removeEventListener('error', handleAudioError);
-    };
-  }, []);
+  
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const volumeTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Subscribe to audio store changes
   useEffect(() => {
@@ -548,6 +556,8 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
         if (track) {
           setCurrentTrack(track);
         }
+      } else {
+        setCurrentTrack(null);
       }
       setIsPlaying(playing);
       setCurrentTime(state.currentTime);
@@ -563,346 +573,275 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
     return unsubscribe;
   }, []);
 
-  // Update cleanup effect for page navigation
-  useEffect(() => {
-    const cleanup = () => {
-      audioStore.cleanup();
-    };
-
-    // Handle page visibility change
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        audioStore.pause();
-      }
-    };
-
-    // Handle page navigation
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      cleanup();
-    };
-
-    // Handle route changes
-    const handleRouteChange = () => {
-      // Don't cleanup on route change, just ensure state is synced
-      if (audioStore.isPlaying) {
-        audioStore.notifyListeners();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('popstate', handleRouteChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('popstate', handleRouteChange);
-    };
-  }, []);
-
-  // Handle playback functions
-  const handleSkipForward = () => {
-    skipToNextTrack();
-  };
-  
-  const handleSkipBack = () => {
-    skipToPreviousTrack();
-  };
-  
-  const handlePlayPause = async () => {
-    if (!currentTrack) return;
-    
-    try {
-      if (isPlaying) {
-        audioStore.pause();
-      } else {
-        await audioStore.play();
-      }
-    } catch (error) {
-      console.error("Error in play/pause:", error);
-    }
-  };
-  
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-    }
-  };
-  
-  const handleLoadMetadata = () => {
-    if (audioRef.current) {
-      const audioDuration = audioRef.current.duration;
-      if (isFinite(audioDuration)) {
-        setDuration(audioDuration);
-      } else if (currentTrack?.duration) {
-        setDuration(currentTrack.duration);
-      }
-    }
-  };
-  
-  const handleTrackEnd = () => {
-    if (audioRef.current) {
-      if (audioRef.current.loop) {
-        // If looping is enabled, the audio will automatically restart
-        return;
-      }
-      
-      // If not looping, move to next track
-      handleSkipForward();
-    }
-  };
-  
-  const handleSeek = (value: number[]) => {
-    if (!value || value.length === 0) return;
-    const seekTime = value[0];
-    if (audioRef.current && isFinite(seekTime) && seekTime >= 0) {
-      audioRef.current.currentTime = seekTime;
-      if (!isPlaying) {
-        // If seeking while paused, don't auto-play
-        setCurrentTime(seekTime);
-      }
-    }
-  };
-  
-  const handleVolumeChange = (value: number[]) => {
-    if (!value || value.length === 0) return;
-    const newVolume = value[0];
-    if (isFinite(newVolume) && newVolume >= 0 && newVolume <= 1) {
-      setVolumeState(newVolume);
-      audioStore.setVolume(newVolume);
-    }
-  };
-  
-  const handleMuteToggle = () => {
-    audioStore.setMuted(!isMuted);
-  };
-
-  const handleLoopToggle = () => {
-    audioStore.setLooping(!isLooping);
-  };
-
-  const handleShuffleToggle = () => {
-    audioStore.setShuffling(!isShuffling);
-  };
-
-  // Helper functions for time formatting
+  // Format time helper
   const formatTime = (seconds: number) => {
+    if (!isFinite(seconds)) return "0:00";
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Get appropriate volume icon based on level and mute state
-  const VolumeIcon = isMuted ? VolumeX : volume > 0.5 ? Volume2 : VolumeX;
-
-  // Add a new error handler function
-  const handleAudioError = (error: Event | unknown) => {
-    audioStore.handleAudioError(error, 'global error');
+  // Get volume icon based on level
+  const getVolumeIcon = () => {
+    if (isMuted || volume === 0) return VolumeX;
+    if (volume < 0.3) return Volume1;
+    return Volume2;
   };
 
-  // Add replay handler
-  const handleReplay = () => {
-    if (currentTrack) {
-      replayTrack();
-    }
+  // Handle play/pause
+  const handlePlayPause = async () => {
+    if (!currentTrack) return;
+    await audioStore.togglePlay();
   };
 
-  const handleProgressBarClick = (event: React.MouseEvent<HTMLDivElement>) => {
+  // Handle seeking
+  const handleProgressClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!duration || !progressBarRef.current) return;
 
     const rect = progressBarRef.current.getBoundingClientRect();
     const x = event.clientX - rect.left;
-    const width = rect.width;
-    const percentage = x / width;
+    const percentage = x / rect.width;
     const seekTime = percentage * duration;
 
     if (isFinite(seekTime) && seekTime >= 0 && seekTime <= duration) {
-      audioStore.audioElement.currentTime = seekTime;
+      audioStore.seekTo(seekTime);
     }
   };
 
-  // Update the minimized player UI
-  if (minimized) {
+  // Handle volume changes
+  const handleVolumeChange = (value: number[]) => {
+    const newVolume = value[0];
+    audioStore.setVolume(newVolume);
+  };
+
+  const handleVolumeIconClick = () => {
+    audioStore.setMuted(!isMuted);
+  };
+
+  const handleVolumeHover = (show: boolean) => {
+    if (volumeTimeoutRef.current) {
+      clearTimeout(volumeTimeoutRef.current);
+    }
+
+    if (show) {
+      setShowVolumeSlider(true);
+    } else {
+      volumeTimeoutRef.current = setTimeout(() => {
+        setShowVolumeSlider(false);
+      }, 300);
+    }
+  };
+
+  // Handle track actions
+  const handleLike = () => {
+    setIsLiked(!isLiked);
+    if (currentTrack) {
+      toast.success(isLiked ? "Removed from favorites" : "Added to favorites");
+    }
+  };
+
+  const VolumeIcon = getVolumeIcon();
+  const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const bufferedPercentage = buffered;
+
+  // Don't render if no current track
+  if (!currentTrack) {
     return (
       <div className={cn(
-        "fixed bottom-0 left-0 right-0 h-12 bg-background/95 backdrop-blur-lg border-t",
-        "flex items-center px-3 gap-3 z-50 shadow-lg",
+        "fixed bottom-0 left-0 right-0 bg-gradient-to-r from-background/95 via-background/98 to-background/95",
+        "backdrop-blur-2xl border-t border-border/30 shadow-2xl",
+        "h-20 flex items-center justify-center z-50",
+        "before:absolute before:inset-0 before:bg-gradient-to-r before:from-primary/5 before:via-transparent before:to-primary/5",
         className
       )}>
-        {currentTrack ? (
-          <>
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <div className="relative h-8 w-8 rounded overflow-hidden">
-                <img 
-                  src={currentTrack.coverArt} 
-                  alt={currentTrack.title}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium truncate">{currentTrack.title}</p>
-              </div>
-            </div>
-            
-            <Button 
-              variant="ghost" 
-              size="sm"
-              className="h-8 w-8 rounded-full"
-              onClick={handlePlayPause}
-            >
-              {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-            </Button>
-          </>
-        ) : (
-          <div className="flex-1 text-center text-sm text-muted-foreground">
-            No track selected
-          </div>
-        )}
+        <div className="text-muted-foreground text-sm font-medium">
+          Select a track to start playing
+        </div>
       </div>
     );
   }
 
-  // Main player UI
   return (
     <div className={cn(
-      "fixed bottom-0 left-0 right-0 h-16 bg-background/95 backdrop-blur-lg border-t",
-      "flex flex-col px-3 z-50 shadow-lg",
+      "fixed bottom-0 left-0 right-0 z-50",
+      "bg-gradient-to-r from-background/95 via-background/98 to-background/95",
+      "backdrop-blur-2xl border-t border-border/30 shadow-2xl",
+      "h-24 flex flex-col",
+      "before:absolute before:inset-0 before:bg-gradient-to-r before:from-primary/5 before:via-transparent before:to-primary/5",
+      "after:absolute after:top-0 after:left-0 after:right-0 after:h-px after:bg-gradient-to-r after:from-transparent after:via-primary/30 after:to-transparent",
       className
     )}>
-      {/* Progress bar */}
+      {/* Curved Progress Bar */}
       <div 
-        className="absolute top-0 left-0 right-0 h-1 cursor-pointer group"
-        onMouseMove={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          setHoverPosition((x / rect.width) * 100);
-        }}
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}
-        onClick={handleProgressBarClick}
         ref={progressBarRef}
+        className="h-1.5 w-full cursor-pointer group relative overflow-hidden"
+        onClick={handleProgressClick}
       >
-        {/* Buffering progress */}
+        {/* Background with gradient */}
+        <div className="absolute inset-0 bg-gradient-to-r from-muted-foreground/10 via-muted-foreground/20 to-muted-foreground/10" />
+        
+        {/* Buffered progress */}
         <div 
-          className="absolute h-full bg-muted-foreground/20"
-          style={{ width: `${buffered}%` }}
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-muted-foreground/30 to-muted-foreground/50 transition-all duration-300 z-20"
+          style={{ width: `${bufferedPercentage}%` }}
         />
-        {/* Playback progress */}
+        
+        {/* Current progress with rainbow effect - grows with song */}
         <div 
-          className="absolute h-full bg-primary transition-all"
-          style={{ width: `${(currentTime / duration) * 100}%` }}
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 transition-all duration-300 z-30"
+          style={{ width: `${progressPercentage}%` }}
         />
-        {/* Hover indicator */}
-        {isHovering && (
-          <>
-            <div 
-              className="absolute h-full bg-primary/50 transition-all"
-              style={{ width: `${hoverPosition}%` }}
-            />
-            <div 
-              className="absolute -top-8 px-2 py-1 rounded bg-background border text-xs transform -translate-x-1/2"
-              style={{ left: `${hoverPosition}%` }}
-            >
-              {formatTime(duration * (hoverPosition / 100))}
-            </div>
-          </>
-        )}
+        
+        {/* Hover effect with glow */}
+        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-40">
+          <div 
+            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rounded-full shadow-lg shadow-primary/50 border-2 border-background"
+            style={{ left: `${progressPercentage}%`, marginLeft: '-8px' }}
+          />
+        </div>
       </div>
 
-      {/* Main content */}
-      <div className="flex items-center gap-3 h-full">
-        {/* Track info */}
-        {currentTrack ? (
-          <div className="flex items-center gap-2 min-w-0 w-[240px]">
-            <div className="relative h-10 w-10 rounded overflow-hidden">
-              <img 
-                src={currentTrack.coverArt} 
-                alt={currentTrack.title}
-                className="h-full w-full object-cover"
-              />
+      {/* Main Content with curved container */}
+      <div className="flex-1 flex items-center px-6 gap-6 relative">
+        {/* Track Info Section */}
+        <div className="flex items-center gap-4 w-80 min-w-0">
+          <div className="relative w-16 h-16 rounded-2xl overflow-hidden shadow-xl group">
+            <img 
+              src={getGatewayUrl(currentTrack.coverArt)}
+              alt={currentTrack.title}
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+            />
+            <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-black/20" />
+            <div className="absolute inset-0 rounded-2xl ring-1 ring-white/10" />
+          </div>
+          
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-base truncate bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
+              {currentTrack.title}
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium truncate">{currentTrack.title}</p>
-              <p className="text-xs text-muted-foreground truncate">{currentTrack.artist.displayName}</p>
+            <div className="text-muted-foreground text-sm truncate">
+              {currentTrack.artist.displayName}
             </div>
           </div>
-        ) : (
-          <div className="w-[240px] flex items-center justify-center text-muted-foreground text-sm">
-            No track selected
-          </div>
-        )}
-
-        {/* Controls */}
-        <div className="flex items-center justify-center flex-1 gap-1">
-          <Button 
-            variant={isShuffling ? "secondary" : "ghost"} 
-            size="icon"
-            className="h-8 w-8 rounded-full"
-            onClick={handleShuffleToggle}
-          >
-            <Shuffle className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon"
-            className="h-8 w-8 rounded-full"
-            onClick={handleSkipBack}
-          >
-            <SkipBack className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant={isPlaying ? "default" : "secondary"}
-            size="icon"
-            className="h-9 w-9 rounded-full"
-            onClick={handlePlayPause}
-          >
-            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-          </Button>
-          <Button 
+          
+          <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 rounded-full"
-            onClick={handleSkipForward}
+            className="w-10 h-10 rounded-2xl text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all duration-200 hover:scale-110"
+            onClick={handleLike}
           >
-            <SkipForward className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant={isLooping ? "secondary" : "ghost"}
-            size="icon"
-            className="h-8 w-8 rounded-full"
-            onClick={handleLoopToggle}
-          >
-            <Repeat className="h-4 w-4" />
+            <Heart className={cn("w-5 h-5 transition-all", isLiked && "fill-current text-red-500 scale-110")} />
           </Button>
         </div>
 
-        {/* Time and Volume */}
-        <div className="flex items-center gap-2 w-[240px]">
-          <span className="text-xs text-muted-foreground w-10 text-right">
-            {formatTime(currentTime)}
-          </span>
-          <span className="text-xs text-muted-foreground">/</span>
-          <span className="text-xs text-muted-foreground w-10">
-            {formatTime(duration)}
-          </span>
-          <div className="flex items-center gap-1 flex-1">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              className="h-8 w-8 rounded-full"
-              onClick={handleMuteToggle}
-            >
-              <VolumeIcon className="h-4 w-4" />
-            </Button>
-            <Slider
-              value={[isMuted ? 0 : volume]}
-              min={0}
-              max={1}
-              step={0.01}
-              onValueChange={handleVolumeChange}
-              className="w-20"
-            />
+        {/* Center Controls with curved design */}
+        <div className="flex items-center justify-center gap-3 flex-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "w-10 h-10 rounded-2xl text-muted-foreground hover:text-foreground transition-all duration-200",
+              "hover:bg-accent/50 hover:scale-110",
+              isShuffling && "text-primary bg-primary/10 shadow-lg shadow-primary/20"
+            )}
+            onClick={() => audioStore.setShuffling(!isShuffling)}
+          >
+            <Shuffle className="w-4 h-4" />
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-10 h-10 rounded-2xl text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-200 hover:scale-110"
+            onClick={() => audioStore.skipToPrevious()}
+          >
+            <SkipBack className="w-5 h-5" />
+          </Button>
+          
+          <Button
+            variant="secondary"
+            size="icon"
+            className={cn(
+              "w-14 h-14 rounded-3xl shadow-2xl transition-all duration-300",
+              "bg-gradient-to-br from-foreground via-foreground/95 to-foreground/90",
+              "text-background hover:scale-110 hover:shadow-3xl",
+              "border border-foreground/20",
+              "active:scale-95"
+            )}
+            onClick={handlePlayPause}
+          >
+            {isPlaying ? (
+              <Pause className="w-6 h-6" />
+            ) : (
+              <Play className="w-6 h-6 ml-0.5" />
+            )}
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-10 h-10 rounded-2xl text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-200 hover:scale-110"
+            onClick={() => audioStore.skipToNext()}
+          >
+            <SkipForward className="w-5 h-5" />
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "w-10 h-10 rounded-2xl text-muted-foreground hover:text-foreground transition-all duration-200",
+              "hover:bg-accent/50 hover:scale-110",
+              isLooping && "text-primary bg-primary/10 shadow-lg shadow-primary/20"
+            )}
+            onClick={() => audioStore.setLooping(!isLooping)}
+          >
+            <Repeat className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Right Controls with curved design */}
+        <div className="flex items-center gap-4 w-80 justify-end">
+          <div className="text-xs text-muted-foreground font-mono bg-muted/30 px-3 py-1.5 rounded-xl border border-border/50">
+            {formatTime(currentTime)} / {formatTime(duration)}
           </div>
+          
+          <div 
+            className="relative flex items-center gap-3 bg-muted/20 rounded-2xl px-3 py-2 border border-border/30"
+            onMouseEnter={() => handleVolumeHover(true)}
+            onMouseLeave={() => handleVolumeHover(false)}
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-8 h-8 rounded-xl text-muted-foreground hover:text-foreground transition-all duration-200 hover:scale-110"
+              onClick={handleVolumeIconClick}
+            >
+              <VolumeIcon className="w-4 h-4" />
+            </Button>
+            
+            <div className={cn(
+              "transition-all duration-300 overflow-hidden",
+              showVolumeSlider ? "w-24 opacity-100" : "w-0 opacity-0"
+            )}>
+              <Slider
+                value={[isMuted ? 0 : volume]}
+                min={0}
+                max={1}
+                step={0.01}
+                onValueChange={handleVolumeChange}
+                className="w-24"
+              />
+            </div>
+          </div>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-10 h-10 rounded-2xl text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-200 hover:scale-110"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </Button>
         </div>
       </div>
     </div>
