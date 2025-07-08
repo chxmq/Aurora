@@ -8,7 +8,7 @@ interface WalletContextType {
   balance: string | null;
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
-  tipArtist?: (artistAddress: string, amount: string, callback: () => void) => Promise<void>;
+  tipArtist: (artistAddress: string, amount: string, callback: () => void) => Promise<void>;
 }
 
 const WalletContext = createContext<WalletContextType>({
@@ -16,7 +16,8 @@ const WalletContext = createContext<WalletContextType>({
   address: null,
   balance: null,
   connectWallet: async () => {},
-  disconnectWallet: () => {}
+  disconnectWallet: () => {},
+  tipArtist: async () => {}
 });
 
 export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
@@ -70,9 +71,41 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
     };
+
+    // Set up wallet event listeners
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts.length === 0) {
+        // User disconnected their wallet
+        disconnectWallet();
+      } else if (accounts[0] !== address) {
+        // User switched accounts
+        setAddress(accounts[0]);
+        setIsConnected(true);
+        localStorage.setItem("walletConnected", "true");
+        toast.info("Wallet account changed");
+      }
+    };
+
+    const handleChainChanged = () => {
+      // Reload the page when chain changes to avoid state inconsistencies
+      window.location.reload();
+    };
+
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      window.ethereum.on('chainChanged', handleChainChanged);
+    }
     
     checkConnection();
-  }, []);
+
+    // Cleanup listeners on unmount
+    return () => {
+      if (window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        window.ethereum.removeListener('chainChanged', handleChainChanged);
+      }
+    };
+  }, [address]);
   
   // Connect wallet function
   const connectWallet = async () => {
@@ -122,7 +155,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   // Function to send tips to artists
-  const tipArtist = async (artistAddress: string, amount: string, callback: () => void) => {
+  const tipArtist = async (artistAddress: string, amount: string, callback: () => void): Promise<void> => {
     if (!isConnected || !address) {
       toast.error("Please connect your wallet first");
       return;
@@ -153,6 +186,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         toast.error("Transaction failed");
       }
       console.error("Error sending ETH:", error);
+      throw error; // Re-throw to allow caller to handle
     }
   };
   

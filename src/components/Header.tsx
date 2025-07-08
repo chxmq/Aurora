@@ -1,237 +1,278 @@
-import { useRef, useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Search, Bell, User, X, Loader2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { useState, useRef, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Search, Bell, User, Menu, X, Sun, Moon, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWallet } from "@/lib/walletUtils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import SearchResults from "@/components/SearchResults";
-import { searchContent } from "@/lib/mockData";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useData } from "@/lib/DataProvider";
+import { cn } from "@/lib/utils";
 
 export default function Header() {
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const { isConnected, connectWallet, address } = useWallet();
+  
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState({ users: [], tracks: [], posts: [] });
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-  const { isConnected, connectWallet, disconnectWallet, address, balance } = useWallet();
-  const { currentUser } = useData();
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
-  
-  // Debounced search with loading state
+
   useEffect(() => {
-    if (searchQuery.trim().length > 2) {
-      setIsSearching(true);
-      const timer = setTimeout(() => {
-        const results = searchContent(searchQuery);
-        setSearchResults(results);
-        setIsSearchOpen(true);
-        setIsSearching(false);
-      }, 300);
-      
-      return () => {
-        clearTimeout(timer);
-        setIsSearching(false);
-      };
-    } else {
-      setIsSearchOpen(false);
-      setIsSearching(false);
-    }
-  }, [searchQuery]);
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (e.key === "/" && !isSearchFocused) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if (e.key === "Escape") {
+        searchRef.current?.blur();
+        setSearchQuery("");
+      }
+    };
 
-  const handleSearchFocus = () => {
-    setIsSearchFocused(true);
-    if (searchQuery.trim().length > 2) {
-      setIsSearchOpen(true);
+    document.addEventListener("keydown", handleKeydown);
+    return () => document.removeEventListener("keydown", handleKeydown);
+  }, [isSearchFocused]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
     }
   };
 
-  const handleSearchBlur = () => {
-    setIsSearchFocused(false);
-  };
-  
-  const handleSearchClear = () => {
-    setSearchQuery("");
-    setIsSearchOpen(false);
-    if (searchRef.current) {
-      searchRef.current.focus();
-    }
-  };
-  
-  const closeSearch = () => {
-    setIsSearchOpen(false);
+  const toggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode);
+    document.documentElement.classList.toggle('dark');
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-background/90 backdrop-blur-md border-b z-20 flex items-center px-4">
-      <div className={`flex items-center justify-between w-full ${!isMobile ? 'ml-60' : ''}`}>
-        {isMobile && (
-          <Link to="/" className="flex items-center font-bold text-xl">
-            <span className="text-music-primary">MUSIC</span>
-            <span>NFT</span>
+    <header className="h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between relative z-50">
+      {/* Mobile Logo & Menu */}
+      {isMobile && (
+        <>
+          <Link to="/" className="flex items-center group">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-brand-500 to-brand-600 rounded-xl flex items-center justify-center shadow-glow transition-all duration-300 group-hover:shadow-glow-lg group-hover:scale-110">
+                <span className="text-white font-bold text-sm">A</span>
+              </div>
+              <span className="bg-gradient-to-r from-brand-600 to-brand-700 bg-clip-text text-transparent font-bold">Aurora</span>
+            </div>
           </Link>
-        )}
 
-        <div className={`relative ${isMobile ? 'flex-1 mx-4' : 'flex-1 max-w-lg'}`}>
-          <Popover open={isSearchOpen} onOpenChange={setIsSearchOpen}>
-            <PopoverTrigger asChild>
-              <div className={`
-                flex items-center 
-                bg-muted/50 
-                rounded-full 
-                px-4 py-2 
-                transition-all duration-300 ease-in-out
-                ${isSearchFocused ? 'ring-1 ring-music-primary shadow-sm scale-[1.02]' : 'hover:bg-muted/70 hover:scale-[1.01]'}
-                transform-gpu
-              `}>
-                {isSearching ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin text-music-primary" />
-                ) : (
-                  <Search className={`
-                    h-4 w-4 
-                    mr-2 
-                    transition-colors duration-300
-                    ${isSearchFocused ? 'text-music-primary' : 'text-muted-foreground'}
-                  `} />
-                )}
-                <input
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 rounded-xl bg-white/10 dark:bg-gray-800/30 backdrop-blur-md border border-white/20 dark:border-gray-700/30 transition-all duration-200 hover:bg-white/20 dark:hover:bg-gray-700/30"
+          >
+            {isMobileMenuOpen ? (
+              <X className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+            ) : (
+              <Menu className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+            )}
+          </button>
+        </>
+      )}
+
+      {/* Desktop Layout */}
+      {!isMobile && (
+        <>
+          {/* Search Bar */}
+          <div className="flex-1 max-w-2xl mx-8">
+            <form onSubmit={handleSearch} className="relative group">
+              <div className={cn(
+                "relative overflow-hidden rounded-2xl transition-all duration-300",
+                isSearchFocused 
+                  ? "glass shadow-glow ring-2 ring-brand-500/50" 
+                  : "bg-white/60 dark:bg-gray-800/60 backdrop-blur-md border border-white/30 dark:border-gray-700/30 hover:bg-white/80 dark:hover:bg-gray-800/80"
+              )}>
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-500 dark:text-gray-400 transition-colors duration-200 group-focus-within:text-brand-500" />
+                
+                <Input
                   ref={searchRef}
                   type="text"
-                  placeholder="Search for artists, tracks, or posts"
-                  className="
-                    flex-1
-                    bg-transparent 
-                    border-none 
-                    focus:outline-none 
-                    text-sm
-                    placeholder:text-muted-foreground/70
-                    text-foreground
-                    w-full
-                    transition-all duration-300
-                    placeholder:transition-opacity
-                    focus:placeholder:opacity-50
-                  "
+                  placeholder="Search tracks, artists, or playlists..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onFocus={handleSearchFocus}
-                  onBlur={handleSearchBlur}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setIsSearchFocused(false)}
+                  className="w-full pl-12 pr-16 py-3 bg-transparent border-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0 focus:outline-none text-sm"
                 />
-                {searchQuery && (
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="h-6 w-6 hover:bg-muted/80 rounded-full ml-1 transition-colors duration-200"
-                    onClick={handleSearchClear}
-                  >
-                    <X className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
-                    <span className="sr-only">Clear search</span>
-                  </Button>
+                
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200"
+                    >
+                      <X className="h-4 w-4 text-gray-500" />
+                    </button>
+                  )}
+                  <kbd className="hidden sm:inline-flex h-6 px-2 bg-gray-200 dark:bg-gray-700 rounded text-xs font-medium text-gray-600 dark:text-gray-400 items-center gap-1">
+                    /
+                  </kbd>
+                </div>
+
+                {/* Search suggestions overlay */}
+                {isSearchFocused && searchQuery && (
+                  <div className="absolute top-full left-0 right-0 mt-2 glass rounded-2xl border border-white/20 dark:border-gray-700/30 p-4 animate-scale-in">
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">Recent searches</div>
+                    <div className="space-y-2">
+                      {["Chill Vibes", "Electronic Beats", "Jazz Fusion"].map((suggestion) => (
+                        <div
+                          key={suggestion}
+                          className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors duration-200"
+                        >
+                          <Search className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{suggestion}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
-            </PopoverTrigger>
-            <PopoverContent 
-              className="w-[90vw] md:w-[600px] p-0 mt-2 border-muted overflow-hidden rounded-xl shadow-lg animate-in fade-in-0 zoom-in-95" 
-              align="start"
+            </form>
+          </div>
+
+          {/* Right Side Actions */}
+          <div className="flex items-center gap-3">
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleDarkMode}
+              className="p-2.5 rounded-2xl bg-white/60 dark:bg-gray-800/60 backdrop-blur-md border border-white/30 dark:border-gray-700/30 hover:bg-white/80 dark:hover:bg-gray-700/50 transition-all duration-200 hover:scale-105"
             >
-              <div className="max-h-[70vh] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-music-primary/20 scrollbar-track-muted hover:scrollbar-thumb-music-primary/30 scroll-smooth">
-                <div className="sticky top-0 bg-popover/80 backdrop-blur-sm p-3 border-b border-muted">
-                  <p className="text-sm text-muted-foreground">
-                    {isSearching ? (
-                      "Searching..."
-                    ) : searchQuery.length > 2 ? (
-                      `Results for "${searchQuery}"`
-                    ) : (
-                      "Start typing to search"
-                    )}
-                  </p>
-                </div>
-                <div className="p-4">
-                  <SearchResults results={searchResults} onClose={closeSearch} />
+              {isDarkMode ? (
+                <Sun className="h-5 w-5 text-amber-500" />
+              ) : (
+                <Moon className="h-5 w-5 text-gray-600" />
+              )}
+            </button>
+
+            {/* Notifications */}
+            <Link
+              to="/notifications"
+              className="relative p-2.5 rounded-2xl bg-white/60 dark:bg-gray-800/60 backdrop-blur-md border border-white/30 dark:border-gray-700/30 hover:bg-white/80 dark:hover:bg-gray-700/50 transition-all duration-200 hover:scale-105 group"
+            >
+              <Bell className="h-5 w-5 text-gray-600 dark:text-gray-300 group-hover:text-brand-600 transition-colors duration-200" />
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-accent-rose rounded-full animate-pulse"></div>
+            </Link>
+
+            {/* Wallet Connection */}
+            {!isConnected ? (
+              <Button
+                onClick={connectWallet}
+                className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
+              >
+                <Wallet className="h-4 w-4" />
+                Connect
+              </Button>
+            ) : (
+              <div className="glass rounded-2xl px-4 py-2 border border-white/20 dark:border-gray-700/30">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-accent-emerald rounded-full animate-pulse"></div>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {address && `${address.substring(0, 6)}...${address.substring(address.length - 4)}`}
+                  </span>
                 </div>
               </div>
-            </PopoverContent>
-          </Popover>
-        </div>
+            )}
 
-        <div className="flex items-center gap-2">
-          {!isMobile && !isConnected && (
-            <Button 
-              className="bg-music-primary hover:bg-music-secondary"
-              onClick={connectWallet}
+            {/* Profile */}
+            <Link
+              to="/profile"
+              className="p-2.5 rounded-2xl bg-white/60 dark:bg-gray-800/60 backdrop-blur-md border border-white/30 dark:border-gray-700/30 hover:bg-white/80 dark:hover:bg-gray-700/50 transition-all duration-200 hover:scale-105 group"
             >
-              Connect Wallet
-            </Button>
-          )}
+              <User className="h-5 w-5 text-gray-600 dark:text-gray-300 group-hover:text-brand-600 transition-colors duration-200" />
+            </Link>
+          </div>
+        </>
+      )}
 
-          {isConnected && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage 
-                      src={currentUser?.avatar || "/placeholder.svg"}
-                      alt={currentUser?.displayName || "User"}
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        if (!target.src.includes('/placeholder.svg')) {
-                          target.src = '/placeholder.svg';
-                        }
-                      }}
-                    />
-                    <AvatarFallback>UN</AvatarFallback>
-                  </Avatar>
+      {/* Mobile Menu Overlay */}
+      {isMobile && isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 animate-scale-in">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-md" onClick={() => setIsMobileMenuOpen(false)} />
+          <div className="absolute top-0 right-0 w-80 h-full glass p-6 animate-slide-in-right">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Menu</h2>
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-2 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Mobile Search */}
+            <form onSubmit={handleSearch} className="mb-6">
+              <div className="relative glass rounded-2xl border border-white/20 dark:border-gray-700/30">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-500" />
+                <Input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-transparent border-0 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-0 focus:outline-none"
+                />
+              </div>
+            </form>
+
+            {/* Mobile Actions */}
+            <div className="space-y-4">
+              <button
+                onClick={toggleDarkMode}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/50 dark:hover:bg-gray-800/50 transition-colors duration-200"
+              >
+                {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                <span>Toggle Theme</span>
+              </button>
+
+              <Link
+                to="/notifications"
+                className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/50 dark:hover:bg-gray-800/50 transition-colors duration-200"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <div className="flex items-center gap-3">
+                  <Bell className="h-5 w-5" />
+                  <span>Notifications</span>
+                </div>
+                <div className="w-2 h-2 bg-accent-rose rounded-full"></div>
+              </Link>
+
+              <Link
+                to="/profile"
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/50 dark:hover:bg-gray-800/50 transition-colors duration-200"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <User className="h-5 w-5" />
+                <span>Profile</span>
+              </Link>
+
+              {!isConnected ? (
+                <Button
+                  onClick={() => {
+                    connectWallet();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full btn-primary flex items-center justify-center gap-2 py-3"
+                >
+                  <Wallet className="h-4 w-4" />
+                  Connect Wallet
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuLabel className="font-normal text-xs text-muted-foreground">
-                  {address && `${address.substring(0, 6)}...${address.substring(address.length - 4)}`}
-                </DropdownMenuLabel>
-                
-                {balance && (
-                  <DropdownMenuLabel className="font-normal text-xs">
-                    Balance: {balance} ETH
-                  </DropdownMenuLabel>
-                )}
-                
-                <DropdownMenuSeparator />
-                
-                <DropdownMenuItem asChild>
-                  <Link to="/profile">
-                    <User className="h-4 w-4 mr-2" />
-                    Profile
-                  </Link>
-                </DropdownMenuItem>
-                
-                <DropdownMenuItem asChild>
-                  <Link to="/notifications">
-                    <Bell className="h-4 w-4 mr-2" />
-                    Notifications
-                  </Link>
-                </DropdownMenuItem>
-                
-                <DropdownMenuSeparator />
-                
-                <DropdownMenuItem onClick={disconnectWallet} className="text-red-500">
-                  Disconnect Wallet
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+              ) : (
+                <div className="w-full glass rounded-xl p-3 border border-white/20 dark:border-gray-700/30">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-accent-emerald rounded-full animate-pulse"></div>
+                    <span className="text-sm font-medium">
+                      {address && `${address.substring(0, 8)}...${address.substring(address.length - 6)}`}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </header>
   );
-}
+};
