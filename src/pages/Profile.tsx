@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import Layout from "@/components/Layout";
 import { mockUsers, mockTracks, mockPosts, addPost, getUserByWalletAddress, getPopulatedPosts, updateUser, initializeIfEmpty, getTracks } from "@/lib/mockData";
 import { User, Track, Post } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -85,14 +84,14 @@ export default function ProfilePage() {
         setUser(userData);
         
         // Get user's tracks
-        const tracks = getTracks().filter(track => track.artist.id === userData?.id);
+        const tracks = userData ? getTracks().filter(track => track.artist.id === userData.id) : [];
         setUserTracks(tracks);
         
         // Get user's posts
-        const posts = mockPosts.filter(post => post.userId === userData?.id);
+        const posts = userData ? mockPosts.filter(post => post.userId === userData.id) : [];
         const populatedPosts = posts.map(post => ({
           ...post,
-          user: userData
+          user: userData!
         }));
         setUserPosts(populatedPosts);
       } catch (error) {
@@ -214,18 +213,16 @@ export default function ProfilePage() {
   
   if (isLoading || !user) {
     return (
-      <Layout>
-        <div className="flex justify-center items-center py-20">
-          <div className="animate-pulse-slow">Loading profile...</div>
-        </div>
-      </Layout>
+      <div className="flex justify-center items-center py-20">
+        <div className="animate-pulse-slow">Loading profile...</div>
+      </div>
     );
   }
   
   const isCurrentUser = address && address.toLowerCase() === user.walletAddress?.toLowerCase();
   
   return (
-    <Layout>
+    <div>
       <div className="relative">
         {/* Banner */}
         <div className="h-40 bg-music-primary/30 rounded-xl mb-16"></div>
@@ -384,6 +381,6 @@ export default function ProfilePage() {
           onProfileUpdate={handleProfileUpdate}
         />
       )}
-    </Layout>
+    </div>
   );
 }

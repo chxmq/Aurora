@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import Layout from "@/components/Layout";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -357,24 +356,20 @@ export default function CreatePage() {
   
   if (!isConnected) {
     return (
-      <Layout>
-        <div className="flex flex-col items-center justify-center py-20">
-          <h1 className="text-2xl font-bold mb-6">Connect Wallet to Create</h1>
-          <p className="text-muted-foreground mb-6 text-center max-w-md">
-            You need to connect your MetaMask wallet to create tracks as NFTs or post content.
-          </p>
-          <Button onClick={connectWallet} className="bg-music-primary hover:bg-music-secondary">
-            Connect Wallet
-          </Button>
-        </div>
-      </Layout>
+      <div className="flex flex-col items-center justify-center py-20">
+        <h1 className="text-2xl font-bold mb-6">Connect Wallet to Create</h1>
+        <p className="text-muted-foreground mb-6 text-center max-w-md">
+          You need to connect your MetaMask wallet to create tracks as NFTs or post content.
+        </p>
+        <Button onClick={connectWallet} className="bg-music-primary hover:bg-music-secondary">
+          Connect Wallet
+        </Button>
+      </div>
     );
   }
   
   return (
-    <Layout>
-      <h1 className="text-2xl font-bold mb-6">Create</h1>
-      
+    <div>
       <Tabs 
         value={activeTab} 
         className="max-w-2xl mx-auto" 
@@ -625,6 +620,6 @@ export default function CreatePage() {
           </div>
         </TabsContent>
       </Tabs>
-    </Layout>
+    </div>
   );
 }

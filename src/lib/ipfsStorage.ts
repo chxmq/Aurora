@@ -2,7 +2,8 @@ import { create } from '@web3-storage/w3up-client';
 import { User, Track, Post } from './types';
 
 // Initialize Web3.Storage client
-let client: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let client: any = null; // Web3.Storage client doesn't export proper types
 
 export const initializeIPFSStorage = async (email: string) => {
   try {
@@ -17,12 +18,12 @@ export const initializeIPFSStorage = async (email: string) => {
   }
 };
 
-export const uploadToIPFS = async (data: any, filename: string, isBinary: boolean = false) => {
+export const uploadToIPFS = async (data: File | object, filename: string, isBinary: boolean = false) => {
   if (!client) throw new Error('IPFS storage not initialized');
 
   try {
     // Handle binary data differently from JSON data
-    const blob = isBinary 
+    const blob = isBinary && data instanceof File
       ? new Blob([data], { type: data.type || 'application/octet-stream' })
       : new Blob([JSON.stringify(data)], { type: 'application/json' });
     const file = new File([blob], filename);

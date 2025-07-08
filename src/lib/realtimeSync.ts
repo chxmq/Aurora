@@ -5,7 +5,8 @@ import { getTracks, getPosts, getUsers, saveTracks, savePosts, saveUsers } from 
 import { Track, Post, User } from './types';
 
 const SYNC_CHANNEL = 'sai-music-app-sync';
-let pubsubClient: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let pubsubClient: any = null; // Web3.Storage client doesn't export proper types
 
 // Initialize pubsub client
 export const initializePubSub = async () => {

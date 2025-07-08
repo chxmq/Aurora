@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import Layout from "@/components/Layout";
+
 import MusicTrackCard from "@/components/MusicTrackCard";
 import { mockTracks, mockUsers } from "@/lib/mockData";
 import { Track } from "@/lib/types";
@@ -63,7 +63,7 @@ export default function ViralSoundsPage() {
   }, []);
 
   return (
-    <Layout>
+    
       <div className="max-w-4xl mx-auto py-8">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-4">Viral Sounds</h1>
@@ -78,6 +78,6 @@ export default function ViralSoundsPage() {
           ))}
         </div>
       </div>
-    </Layout>
+    
   );
 }

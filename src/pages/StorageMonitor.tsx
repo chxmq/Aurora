@@ -1,4 +1,4 @@
-import Layout from "@/components/Layout";
+
 import PinataStorageMonitor from "@/components/PinataStorageMonitor";
 import { useWallet } from "@/lib/walletUtils";
 import { useEffect } from "react";
@@ -16,7 +16,7 @@ export default function StorageMonitorPage() {
   }, [isConnected, navigate]);
 
   return (
-    <Layout>
+    
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Storage Monitor</h1>
@@ -27,6 +27,6 @@ export default function StorageMonitorPage() {
 
         <PinataStorageMonitor />
       </div>
-    </Layout>
+    
   );
 } 

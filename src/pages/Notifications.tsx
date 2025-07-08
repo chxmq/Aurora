@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from "react";
-import Layout from "@/components/Layout";
+
 import { getUserNotifications } from "@/lib/mockData";
 import { Notification } from "@/lib/types";
 import { formatDistanceToNow } from "date-fns";
@@ -117,9 +116,8 @@ export default function NotificationsPage() {
   };
 
   return (
-    <Layout>
+    <div className="space-y-6">
       <h1 className="text-2xl font-bold mb-6">Notifications</h1>
-      
       {isLoading ? (
         <div className="flex justify-center py-12">
           <div className="animate-pulse-slow">Loading notifications...</div>
@@ -128,10 +126,10 @@ export default function NotificationsPage() {
         <>
           {notifications.length > 0 ? (
             <div className="space-y-4">
-              {notifications.map(notification => (
-                <div 
-                  key={notification.id} 
-                  className={`p-4 rounded-lg ${notification.isRead ? 'bg-secondary/20' : 'bg-secondary/50'}`}
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`p-4 rounded-lg ${notification.isRead ? 'bg-muted/20' : 'bg-muted/40'}`}
                 >
                   {renderNotificationContent(notification)}
                 </div>
@@ -148,6 +146,6 @@ export default function NotificationsPage() {
           )}
         </>
       )}
-    </Layout>
+    </div>
   );
 }

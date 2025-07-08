@@ -47,8 +47,21 @@ export default function PostCard({ post, onDelete, className }: PostCardProps) {
   const [currentTrack, setCurrentTrack] = useState(DEFAULT_TRACKS[0]);
   const [timeAgo, setTimeAgo] = useState('');
   
+  // Defensive fallback for missing user
+  const safeUser = post.user || {
+    id: 'unknown',
+    username: 'unknown',
+    displayName: 'Unknown',
+    avatar: '/placeholder.svg',
+    isVerified: false,
+    followers: 0,
+    following: 0,
+    posts: 0,
+    walletAddress: ''
+  };
+
   // Check if current user is the post owner
-  const isOwner = address && post.user.walletAddress?.toLowerCase() === address.toLowerCase();
+  const isOwner = address && safeUser.walletAddress?.toLowerCase() === address.toLowerCase();
 
   // Get a random default image
   const getRandomDefaultImage = () => {
@@ -202,17 +215,17 @@ export default function PostCard({ post, onDelete, className }: PostCardProps) {
       className
     )}>
       <div className="flex items-center justify-between mb-3">
-        <Link to={`/profile/${post.user.id}`} className="flex items-center">
+        <Link to={`/profile/${safeUser.id}`} className="flex items-center">
           <AvatarWithVerify
-            src={post.user.avatar}
-            fallback={post.user.displayName}
-            isVerified={post.user.isVerified}
+            src={safeUser.avatar}
+            fallback={safeUser.displayName}
+            isVerified={safeUser.isVerified}
             className="h-10 w-10"
           />
           <div className="ml-3">
-            <p className="font-semibold">{post.user.displayName}</p>
+            <p className="font-semibold">{safeUser.displayName}</p>
             <div className="flex items-center gap-2">
-              <p className="text-sm text-muted-foreground">{post.user.username}</p>
+              <p className="text-sm text-muted-foreground">{safeUser.username}</p>
               <span className="text-xs text-muted-foreground">•</span>
               <p className="text-xs text-muted-foreground">{timeAgo}</p>
             </div>

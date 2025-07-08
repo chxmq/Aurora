@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Track } from "@/lib/types";
 import { 
   Play, 
@@ -6,11 +6,15 @@ import {
   SkipBack, 
   SkipForward, 
   Volume2, 
-  Volume1, 
-  VolumeX,
-  Repeat,
+  VolumeX, 
+  Repeat, 
   Shuffle,
-  RotateCcw
+  Heart,
+  MoreHorizontal,
+  Maximize2,
+  ChevronUp,
+  Share,
+  Download
 } from "lucide-react";
 import { AvatarWithVerify } from "@/components/ui/avatar-with-verify";
 import { Button } from "@/components/ui/button";
@@ -20,6 +24,16 @@ import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { getFileUrl } from "@/lib/fileStorage";
 import { getGatewayUrl } from "@/lib/utils";
+
+interface AudioState {
+  volume: number;
+  isMuted: boolean;
+  isLooping: boolean;
+  isShuffling: boolean;
+  currentTime: number;
+  duration: number;
+  buffered: number;
+}
 
 interface MusicPlayerProps {
   className?: string;
@@ -50,7 +64,7 @@ export const audioStore = {
   currentTime: 0,
   duration: 0,
   buffered: 0,
-  listeners: [] as Function[],
+  listeners: [] as Array<(trackId: string | null, playing: boolean, state: AudioState) => void>,
   
   cleanup() {
     try {
@@ -66,7 +80,7 @@ export const audioStore = {
     }
   },
 
-  handleAudioError(error: any, context: string) {
+  handleAudioError(error: unknown, context: string) {
     console.error(`Audio error during ${context}:`, error);
     
     // Cleanup the audio state
@@ -238,7 +252,7 @@ export const audioStore = {
     try {
       this.audioElement.currentTime = 0;
       if (!this.isPlaying) {
-        this.setIsPlaying(true);
+        this.play();
       }
     } catch (error) {
       console.error("Error replaying audio:", error);
@@ -248,6 +262,7 @@ export const audioStore = {
 
   setVolume(volume: number) {
     this.volume = volume;
+    this.audioElement.volume = this.isMuted ? 0 : volume;
     if (this.gainNode) {
       this.gainNode.gain.value = this.isMuted ? 0 : volume;
     }
@@ -256,6 +271,7 @@ export const audioStore = {
 
   setMuted(muted: boolean) {
     this.isMuted = muted;
+    this.audioElement.volume = muted ? 0 : this.volume;
     if (this.gainNode) {
       this.gainNode.gain.value = muted ? 0 : this.volume;
     }
@@ -279,7 +295,7 @@ export const audioStore = {
     }
   },
   
-  subscribe(listener: Function) {
+  subscribe(listener: (trackId: string | null, playing: boolean, state: AudioState) => void) {
     this.listeners.push(listener);
     return () => {
       this.listeners = this.listeners.filter(l => l !== listener);
@@ -355,8 +371,11 @@ export const audioStore = {
       this.duration = this.audioElement.duration || 0;
       
       // Calculate buffered amount
-      if (this.audioElement.buffered.length > 0) {
-        this.buffered = (this.audioElement.buffered.end(this.audioElement.buffered.length - 1) / this.duration) * 100;
+      if (this.audioElement.buffered.length > 0 && this.duration > 0) {
+        const bufferedEnd = this.audioElement.buffered.end(this.audioElement.buffered.length - 1);
+        this.buffered = (bufferedEnd / this.duration) * 100;
+      } else {
+        this.buffered = 0;
       }
       
       this.notifyListeners();
@@ -364,7 +383,7 @@ export const audioStore = {
   }
 };
 
-// Set up global audio event listeners
+// Set up global audio event listeners (these are intentionally global and don't need cleanup)
 globalAudio.addEventListener('ended', () => {
   if (!audioStore.isLooping) {
     // Move to next track if not looping
@@ -523,7 +542,7 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
 
   // Subscribe to audio store changes
   useEffect(() => {
-    const updateStates = (trackId: string | null, playing: boolean, state: any) => {
+    const updateStates = (trackId: string | null, playing: boolean, state: AudioState) => {
       if (trackId) {
         const track = mockTracks.find(t => t.id === trackId);
         if (track) {
@@ -634,6 +653,7 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
   };
   
   const handleSeek = (value: number[]) => {
+    if (!value || value.length === 0) return;
     const seekTime = value[0];
     if (audioRef.current && isFinite(seekTime) && seekTime >= 0) {
       audioRef.current.currentTime = seekTime;
@@ -645,8 +665,9 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
   };
   
   const handleVolumeChange = (value: number[]) => {
+    if (!value || value.length === 0) return;
     const newVolume = value[0];
-    if (isFinite(newVolume)) {
+    if (isFinite(newVolume) && newVolume >= 0 && newVolume <= 1) {
       setVolumeState(newVolume);
       audioStore.setVolume(newVolume);
     }
@@ -672,10 +693,10 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
   };
 
   // Get appropriate volume icon based on level and mute state
-  const VolumeIcon = isMuted ? VolumeX : volume > 0.5 ? Volume2 : Volume1;
+  const VolumeIcon = isMuted ? VolumeX : volume > 0.5 ? Volume2 : VolumeX;
 
   // Add a new error handler function
-  const handleAudioError = (error: any) => {
+  const handleAudioError = (error: Event | unknown) => {
     audioStore.handleAudioError(error, 'global error');
   };
 
