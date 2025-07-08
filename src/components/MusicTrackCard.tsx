@@ -62,12 +62,15 @@ export default function MusicTrackCard({ track, compact = false, index, onDelete
           pauseTrack();
         } else {
           console.log('Playing current track');
+          // Show notification immediately when resuming
+          toast.success(`Now playing: ${track.title}`);
           playTrack(track.id);
         }
       } else {
         console.log('Playing new track:', track.title);
-        playTrack(track.id);
+        // Show notification immediately when starting new track
         toast.success(`Now playing: ${track.title}`);
+        playTrack(track.id);
       }
     } catch (error) {
       console.error("Error handling play:", error);

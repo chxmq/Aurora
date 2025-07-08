@@ -102,8 +102,8 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated?: () =
   
   const handlePlayPreview = (track: Track, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent the track from being selected
-    playTrack(track.id);
     toast.success(`Playing: ${track.title}`);
+    playTrack(track.id);
   };
   
   const clearSelectedTrack = () => {
