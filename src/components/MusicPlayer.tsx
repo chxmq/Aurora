@@ -1,7 +1,68 @@
-// Re-export the enhanced music player as the default music player
-import EnhancedMusicPlayer from './EnhancedMusicPlayer';
-export { audioStore } from './EnhancedMusicPlayer';
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Track } from "@/lib/types";
+import { 
+  Play, 
+  Pause, 
+  SkipBack, 
+  SkipForward, 
+  Volume2, 
+  VolumeX, 
+  Repeat, 
+  Shuffle,
+  Heart,
+  MoreHorizontal,
+  Maximize2,
+  ChevronUp,
+  Share,
+  Download,
+  Volume1,
+  Settings,
+  Music,
+  BarChart3
+} from "lucide-react";
+import { AvatarWithVerify } from "@/components/ui/avatar-with-verify";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+import { mockTracks } from "@/lib/mockData";
+import { toast } from "sonner";
+import { getFileUrl } from "@/lib/fileStorage";
+import { getGatewayUrl } from "@/lib/utils";
+import AudioVisualizer from "./AudioVisualizer";
+import AudioEqualizer from "./AudioEqualizer";
+import LyricsDisplay from "./LyricsDisplay";
+import CrossfadeController from "./CrossfadeController";
 
+interface AudioState {
+  volume: number;
+  isMuted: boolean;
+  isLooping: boolean;
+  isShuffling: boolean;
+  currentTime: number;
+  duration: number;
+  buffered: number;
+}
+
+interface MusicPlayerProps {
+  className?: string;
+  minimized?: boolean;
+}
+
+// Create a single global audio instance
+const globalAudio = new Audio();
+globalAudio.preload = "auto";
+globalAudio.crossOrigin = "anonymous";
+
+// Add audio context for better control
+let audioContext: AudioContext | null = null;
+let audioSource: MediaElementAudioSourceNode | null = null;
+let gainNode: GainNode | null = null;
+
+// Initialize audio context on first user interaction
+const initAudioContext = async () => {
+  if (!audioContext) {
+    try {
       audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       audioSource = audioContext.createMediaElementSource(globalAudio);
       gainNode = audioContext.createGain();
@@ -56,8 +117,6 @@ export const audioStore = {
 
   handleAudioError(error: unknown, context: string) {
     console.error(`Audio error during ${context}:`, error);
-    
-    // Cleanup the audio state
     this.cleanup();
     
     let errorMessage = "An error occurred while playing audio.";
@@ -98,7 +157,6 @@ export const audioStore = {
       }
     }
 
-    // Only show error toast if it's not a user interaction issue
     if (!errorMessage.includes('not allowed')) {
       toast.error(errorMessage);
     } else {
@@ -108,17 +166,14 @@ export const audioStore = {
 
   async initializeAudio() {
     try {
-      // Initialize audio context on first use
       this.audioContext = await initAudioContext();
       this.gainNode = gainNode;
       
-      // Resume audio context if it's suspended (required by browsers)
       if (this.audioContext && this.audioContext.state === 'suspended') {
         console.log('Resuming audio context...');
         await this.audioContext.resume();
       }
       
-      // Ensure audio element is in a clean state
       this.audioElement.volume = this.isMuted ? 0 : this.volume;
       this.audioElement.loop = this.isLooping;
       
@@ -152,15 +207,12 @@ export const audioStore = {
       this.currentTrackId = trackId;
 
       if (isNewTrack) {
-        // Cleanup before loading new track
         this.audioElement.pause();
         this.audioElement.currentTime = 0;
         
         let audioUrl = track.audioUrl;
         
-        // Handle different URL types
         if (audioUrl.startsWith('file://')) {
-          // Get the file URL from storage
           const fileId = audioUrl.replace('file://', '');
           const storedUrl = getFileUrl(fileId);
           if (!storedUrl) {
@@ -168,20 +220,17 @@ export const audioStore = {
           }
           audioUrl = storedUrl;
         } else if (audioUrl.startsWith('/')) {
-          // Handle absolute paths - these should work directly in the browser
           audioUrl = audioUrl;
           console.log('Using direct path:', audioUrl);
         } else if (audioUrl.startsWith('ipfs://')) {
           audioUrl = getGatewayUrl(audioUrl);
         } else if (!audioUrl.startsWith('http')) {
-          // Ensure relative paths are properly prefixed
           audioUrl = `/${audioUrl}`;
         }
 
         console.log('Final audio URL:', audioUrl);
         this.audioElement.src = audioUrl;
         
-        // Wait for audio to be loaded
         try {
           await new Promise((resolve, reject) => {
             const loadHandler = () => {
@@ -198,15 +247,12 @@ export const audioStore = {
 
             this.audioElement.addEventListener('loadeddata', loadHandler, { once: true });
             this.audioElement.addEventListener('error', errorHandler, { once: true });
-            
-            // Also listen for canplay event as fallback
             this.audioElement.addEventListener('canplay', loadHandler, { once: true });
             
             this.audioElement.load();
           });
         } catch (error) {
           console.error('Error loading audio:', error);
-          // Try to continue anyway - sometimes the audio can still play
           console.log('Attempting to play despite load error...');
         }
       }
@@ -231,7 +277,6 @@ export const audioStore = {
       console.log('Attempting to play audio...');
       await this.initializeAudio();
       
-      // Try to play the audio
       const playPromise = this.audioElement.play();
       if (playPromise !== undefined) {
         await playPromise;
@@ -344,7 +389,6 @@ export const audioStore = {
     
     let nextIndex;
     if (this.isShuffling) {
-      // Get random index excluding current track
       const availableIndices = Array.from(
         { length: mockTracks.length },
         (_, i) => i
@@ -363,7 +407,6 @@ export const audioStore = {
     const currentIndex = mockTracks.findIndex(t => t.id === this.currentTrackId);
     if (currentIndex === -1) return;
     
-    // If we're more than 3 seconds into the song, restart it
     if (this.audioElement.currentTime > 3) {
       this.audioElement.currentTime = 0;
       return;
@@ -371,7 +414,6 @@ export const audioStore = {
     
     let prevIndex;
     if (this.isShuffling) {
-      // Get random index excluding current track
       const availableIndices = Array.from(
         { length: mockTracks.length },
         (_, i) => i
@@ -390,7 +432,6 @@ export const audioStore = {
       this.currentTime = this.audioElement.currentTime;
       this.duration = this.audioElement.duration || 0;
       
-      // Calculate buffered amount
       if (this.audioElement.buffered.length > 0 && this.duration > 0) {
         const bufferedEnd = this.audioElement.buffered.end(this.audioElement.buffered.length - 1);
         this.buffered = (bufferedEnd / this.duration) * 100;
@@ -490,7 +531,8 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
   const [buffered, setBuffered] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState('visualizer');
   
   const progressBarRef = useRef<HTMLDivElement>(null);
   const volumeTimeoutRef = useRef<NodeJS.Timeout>();
@@ -609,188 +651,257 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
   }
 
   return (
-    <div className={cn(
-      "fixed bottom-0 left-0 right-0 z-50",
-      "bg-gradient-to-r from-background/95 via-background/98 to-background/95",
-      "backdrop-blur-2xl border-t border-border/30 shadow-2xl",
-      "h-24 flex flex-col",
-      "before:absolute before:inset-0 before:bg-gradient-to-r before:from-primary/5 before:via-transparent before:to-primary/5",
-      "after:absolute after:top-0 after:left-0 after:right-0 after:h-px after:bg-gradient-to-r after:from-transparent after:via-primary/30 after:to-transparent",
-      className
-    )}>
-      {/* Curved Progress Bar */}
-      <div 
-        ref={progressBarRef}
-        className="h-1.5 w-full cursor-pointer group relative overflow-hidden"
-        onClick={handleProgressClick}
-      >
-        {/* Background with gradient */}
-        <div className="absolute inset-0 bg-gradient-to-r from-muted-foreground/10 via-muted-foreground/20 to-muted-foreground/10" />
-        
-        {/* Buffered progress */}
+    <>
+      {/* Main Player Bar */}
+      <div className={cn(
+        "fixed bottom-0 left-0 right-0 z-50",
+        "bg-gradient-to-r from-background/95 via-background/98 to-background/95",
+        "backdrop-blur-2xl border-t border-border/30 shadow-2xl",
+        isExpanded ? "h-96" : "h-24",
+        "flex flex-col transition-all duration-300",
+        "before:absolute before:inset-0 before:bg-gradient-to-r before:from-primary/5 before:via-transparent before:to-primary/5",
+        className
+      )}>
+        {/* Progress Bar */}
         <div 
-          className="absolute inset-y-0 left-0 bg-gradient-to-r from-muted-foreground/30 to-muted-foreground/50 transition-all duration-300 z-20"
-          style={{ width: `${bufferedPercentage}%` }}
-        />
-        
-        {/* Current progress with rainbow effect - grows with song */}
-        <div 
-          className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 transition-all duration-300 z-30"
-          style={{ width: `${progressPercentage}%` }}
-        />
-        
-        {/* Hover effect with glow */}
-        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-40">
+          ref={progressBarRef}
+          className="h-1.5 w-full cursor-pointer group relative overflow-hidden"
+          onClick={handleProgressClick}
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-muted-foreground/10 via-muted-foreground/20 to-muted-foreground/10" />
           <div 
-            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rounded-full shadow-lg shadow-primary/50 border-2 border-background"
-            style={{ left: `${progressPercentage}%`, marginLeft: '-8px' }}
+            className="absolute inset-y-0 left-0 bg-gradient-to-r from-muted-foreground/30 to-muted-foreground/50 transition-all duration-300 z-20"
+            style={{ width: `${bufferedPercentage}%` }}
           />
-        </div>
-      </div>
-
-      {/* Main Content with curved container */}
-      <div className="flex-1 flex items-center px-6 gap-6 relative">
-        {/* Track Info Section */}
-        <div className="flex items-center gap-4 w-80 min-w-0">
-          <div className="relative w-16 h-16 rounded-2xl overflow-hidden shadow-xl group">
-            <img 
-              src={getGatewayUrl(currentTrack.coverArt)}
-              alt={currentTrack.title}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-            />
-            <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-black/20" />
-            <div className="absolute inset-0 rounded-2xl ring-1 ring-white/10" />
-          </div>
-          
-          <div className="min-w-0 flex-1">
-            <div className="font-semibold text-base truncate bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
-              {currentTrack.title}
-            </div>
-            <div className="text-muted-foreground text-sm truncate">
-              {currentTrack.artist.displayName}
-            </div>
-          </div>
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-10 h-10 rounded-2xl text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all duration-200 hover:scale-110"
-            onClick={handleLike}
-          >
-            <Heart className={cn("w-5 h-5 transition-all", isLiked && "fill-current text-red-500 scale-110")} />
-          </Button>
-        </div>
-
-        {/* Center Controls with curved design */}
-        <div className="flex items-center justify-center gap-3 flex-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "w-10 h-10 rounded-2xl text-muted-foreground hover:text-foreground transition-all duration-200",
-              "hover:bg-accent/50 hover:scale-110",
-              isShuffling && "text-primary bg-primary/10 shadow-lg shadow-primary/20"
-            )}
-            onClick={() => audioStore.setShuffling(!isShuffling)}
-          >
-            <Shuffle className="w-4 h-4" />
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-10 h-10 rounded-2xl text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-200 hover:scale-110"
-            onClick={() => audioStore.skipToPrevious()}
-          >
-            <SkipBack className="w-5 h-5" />
-          </Button>
-          
-          <Button
-            variant="secondary"
-            size="icon"
-            className={cn(
-              "w-14 h-14 rounded-3xl shadow-2xl transition-all duration-300",
-              "bg-gradient-to-br from-foreground via-foreground/95 to-foreground/90",
-              "text-background hover:scale-110 hover:shadow-3xl",
-              "border border-foreground/20",
-              "active:scale-95"
-            )}
-            onClick={handlePlayPause}
-          >
-            {isPlaying ? (
-              <Pause className="w-6 h-6" />
-            ) : (
-              <Play className="w-6 h-6 ml-0.5" />
-            )}
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-10 h-10 rounded-2xl text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-200 hover:scale-110"
-            onClick={() => audioStore.skipToNext()}
-          >
-            <SkipForward className="w-5 h-5" />
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "w-10 h-10 rounded-2xl text-muted-foreground hover:text-foreground transition-all duration-200",
-              "hover:bg-accent/50 hover:scale-110",
-              isLooping && "text-primary bg-primary/10 shadow-lg shadow-primary/20"
-            )}
-            onClick={() => audioStore.setLooping(!isLooping)}
-          >
-            <Repeat className="w-4 h-4" />
-          </Button>
-        </div>
-
-        {/* Right Controls with curved design */}
-        <div className="flex items-center gap-4 w-80 justify-end">
-          <div className="text-xs text-muted-foreground font-mono bg-muted/30 px-3 py-1.5 rounded-xl border border-border/50">
-            {formatTime(currentTime)} / {formatTime(duration)}
-          </div>
-          
           <div 
-            className="relative flex items-center gap-3 bg-muted/20 rounded-2xl px-3 py-2 border border-border/30"
-            onMouseEnter={() => handleVolumeHover(true)}
-            onMouseLeave={() => handleVolumeHover(false)}
-          >
+            className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 transition-all duration-300 z-30"
+            style={{ width: `${progressPercentage}%` }}
+          />
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-40">
+            <div 
+              className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rounded-full shadow-lg shadow-primary/50 border-2 border-background"
+              style={{ left: `${progressPercentage}%`, marginLeft: '-8px' }}
+            />
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 flex items-center px-6 gap-6 relative">
+          {/* Track Info */}
+          <div className="flex items-center gap-4 w-80 min-w-0">
+            <div className="relative w-16 h-16 rounded-2xl overflow-hidden shadow-xl group">
+              <img 
+                src={getGatewayUrl(currentTrack.coverArt)}
+                alt={currentTrack.title}
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+              />
+              <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-black/20" />
+              <div className="absolute inset-0 rounded-2xl ring-1 ring-white/10" />
+            </div>
+            
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-base truncate bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
+                {currentTrack.title}
+              </div>
+              <div className="text-muted-foreground text-sm truncate">
+                {currentTrack.artist.displayName}
+              </div>
+            </div>
+            
             <Button
               variant="ghost"
               size="icon"
-              className="w-8 h-8 rounded-xl text-muted-foreground hover:text-foreground transition-all duration-200 hover:scale-110"
-              onClick={handleVolumeIconClick}
+              className="w-10 h-10 rounded-2xl text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all duration-200 hover:scale-110"
+              onClick={handleLike}
             >
-              <VolumeIcon className="w-4 h-4" />
+              <Heart className={cn("w-5 h-5 transition-all", isLiked && "fill-current text-red-500 scale-110")} />
+            </Button>
+          </div>
+
+          {/* Center Controls */}
+          <div className="flex items-center justify-center gap-3 flex-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "w-10 h-10 rounded-2xl text-muted-foreground hover:text-foreground transition-all duration-200",
+                "hover:bg-accent/50 hover:scale-110",
+                isShuffling && "text-primary bg-primary/10 shadow-lg shadow-primary/20"
+              )}
+              onClick={() => audioStore.setShuffling(!isShuffling)}
+            >
+              <Shuffle className="w-4 h-4" />
             </Button>
             
-            <div className={cn(
-              "transition-all duration-300 overflow-hidden",
-              showVolumeSlider ? "w-24 opacity-100" : "w-0 opacity-0"
-            )}>
-              <Slider
-                value={[isMuted ? 0 : volume]}
-                min={0}
-                max={1}
-                step={0.01}
-                onValueChange={handleVolumeChange}
-                className="w-24"
-              />
-            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-10 h-10 rounded-2xl text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-200 hover:scale-110"
+              onClick={() => audioStore.skipToPrevious()}
+            >
+              <SkipBack className="w-5 h-5" />
+            </Button>
+            
+            <Button
+              variant="secondary"
+              size="icon"
+              className={cn(
+                "w-14 h-14 rounded-3xl shadow-2xl transition-all duration-300",
+                "bg-gradient-to-br from-foreground via-foreground/95 to-foreground/90",
+                "text-background hover:scale-110 hover:shadow-3xl",
+                "border border-foreground/20",
+                "active:scale-95"
+              )}
+              onClick={handlePlayPause}
+            >
+              {isPlaying ? (
+                <Pause className="w-6 h-6" />
+              ) : (
+                <Play className="w-6 h-6 ml-0.5" />
+              )}
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-10 h-10 rounded-2xl text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-200 hover:scale-110"
+              onClick={() => audioStore.skipToNext()}
+            >
+              <SkipForward className="w-5 h-5" />
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "w-10 h-10 rounded-2xl text-muted-foreground hover:text-foreground transition-all duration-200",
+                "hover:bg-accent/50 hover:scale-110",
+                isLooping && "text-primary bg-primary/10 shadow-lg shadow-primary/20"
+              )}
+              onClick={() => audioStore.setLooping(!isLooping)}
+            >
+              <Repeat className="w-4 h-4" />
+            </Button>
           </div>
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-10 h-10 rounded-2xl text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-200 hover:scale-110"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </Button>
+
+          {/* Right Controls */}
+          <div className="flex items-center gap-4 w-80 justify-end">
+            <div className="text-xs text-muted-foreground font-mono bg-muted/30 px-3 py-1.5 rounded-xl border border-border/50">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </div>
+            
+            <div 
+              className="relative flex items-center gap-3 bg-muted/20 rounded-2xl px-3 py-2 border border-border/30"
+              onMouseEnter={() => handleVolumeHover(true)}
+              onMouseLeave={() => handleVolumeHover(false)}
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-8 h-8 rounded-xl text-muted-foreground hover:text-foreground transition-all duration-200 hover:scale-110"
+                onClick={handleVolumeIconClick}
+              >
+                <VolumeIcon className="w-4 h-4" />
+              </Button>
+              
+              <div className={cn(
+                "transition-all duration-300 overflow-hidden",
+                showVolumeSlider ? "w-24 opacity-100" : "w-0 opacity-0"
+              )}>
+                <Slider
+                  value={[isMuted ? 0 : volume]}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  onValueChange={handleVolumeChange}
+                  className="w-24"
+                />
+              </div>
+            </div>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "w-10 h-10 rounded-2xl text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-200 hover:scale-110",
+                isExpanded && "text-primary bg-primary/10"
+              )}
+              onClick={() => setIsExpanded(!isExpanded)}
+            >
+              <ChevronUp className={cn("w-4 h-4 transition-transform duration-300", isExpanded && "rotate-180")} />
+            </Button>
+          </div>
         </div>
+
+        {/* Expanded Content */}
+        {isExpanded && (
+          <div className="flex-1 border-t border-border/30 bg-background/50 backdrop-blur-sm">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
+              <TabsList className="w-full justify-start border-b border-border/30 bg-transparent rounded-none h-12">
+                <TabsTrigger value="visualizer" className="gap-2">
+                  <BarChart3 className="w-4 h-4" />
+                  Visualizer
+                </TabsTrigger>
+                <TabsTrigger value="equalizer" className="gap-2">
+                  <Settings className="w-4 h-4" />
+                  Equalizer
+                </TabsTrigger>
+                <TabsTrigger value="lyrics" className="gap-2">
+                  <Music className="w-4 h-4" />
+                  Lyrics
+                </TabsTrigger>
+                <TabsTrigger value="crossfade" className="gap-2">
+                  <Shuffle className="w-4 h-4" />
+                  Crossfade
+                </TabsTrigger>
+              </TabsList>
+              
+              <div className="h-64 overflow-hidden">
+                <TabsContent value="visualizer" className="h-full m-0 p-4">
+                  <div className="flex items-center justify-center gap-6 h-full">
+                    <AudioVisualizer 
+                      audioElement={audioStore.audioElement}
+                      isPlaying={isPlaying}
+                      type="spectrum"
+                      className="flex-1"
+                    />
+                    <AudioVisualizer 
+                      audioElement={audioStore.audioElement}
+                      isPlaying={isPlaying}
+                      type="circular"
+                    />
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="equalizer" className="h-full m-0 p-4">
+                  <AudioEqualizer 
+                    audioContext={audioStore.audioContext}
+                    sourceNode={audioSource}
+                    destinationNode={gainNode}
+                    className="h-full"
+                  />
+                </TabsContent>
+                
+                <TabsContent value="lyrics" className="h-full m-0">
+                  <LyricsDisplay 
+                    lyrics={currentTrack.lyrics}
+                    currentTime={currentTime}
+                    isPlaying={isPlaying}
+                    className="h-full"
+                  />
+                </TabsContent>
+                
+                <TabsContent value="crossfade" className="h-full m-0 p-4">
+                  <CrossfadeController 
+                    audioContext={audioStore.audioContext}
+                    className="h-full"
+                  />
+                </TabsContent>
+              </div>
+            </Tabs>
+          </div>
+        )}
       </div>
-    </div>
+    </>
   );
 }
