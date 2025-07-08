@@ -17,7 +17,6 @@ const navItems = [
 const secondaryItems = [
   { to: "/profile", icon: User, label: "Profile" },
   { to: "/notifications", icon: Bell, label: "Notifications" },
-  { to: "/storage-monitor", icon: Database, label: "Storage" },
 ];
 
 const collections = [
@@ -58,9 +57,7 @@ export default function Sidebar() {
             >
               {({ isActive }) => (
                 <>
-                  {React.cloneElement(link.icon, { 
-                    className: cn("h-5 w-5 mb-1", isActive ? "text-music-primary" : "text-muted-foreground")
-                  })}
+                  <link.icon className={cn("h-5 w-5 mb-1", isActive ? "text-music-primary" : "text-muted-foreground")} />
                   <span className="text-xs">{link.label}</span>
                 </>
               )}
@@ -207,24 +204,6 @@ export default function Sidebar() {
             </Link>
           );
         })}
-      </div>
-
-      {/* Bottom Section */}
-      <div className="mt-auto pt-6 border-t border-gray-200/50 dark:border-gray-700/50 animate-fade-up delay-400">
-        <div className="bg-gradient-to-br from-brand-50 to-violet-50 dark:from-brand-950/50 dark:to-violet-950/50 rounded-2xl p-4 border border-brand-200/50 dark:border-brand-800/50">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 bg-gradient-to-r from-brand-500 to-brand-600 rounded-xl flex items-center justify-center">
-              <Settings className="h-4 w-4 text-white" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-gray-900 dark:text-white">Upgrade</div>
-              <div className="text-xs text-gray-500">Premium features</div>
-            </div>
-          </div>
-          <button className="w-full btn-primary text-sm py-2 px-4 font-medium">
-            Go Premium
-          </button>
-        </div>
       </div>
     </aside>
   );

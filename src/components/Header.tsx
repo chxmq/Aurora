@@ -61,20 +61,50 @@ export default function Header() {
   const toggleDarkMode = () => {
     setIsTransitioning(true);
     
+    // Create a more sophisticated transition effect
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+      background: ${isDarkMode 
+        ? 'radial-gradient(circle at center, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 30%, transparent 70%)' 
+        : 'radial-gradient(circle at center, rgba(15, 23, 42, 0.15) 0%, rgba(15, 23, 42, 0.08) 30%, transparent 70%)'};
+      opacity: 0;
+      transition: opacity 200ms cubic-bezier(0.23, 1, 0.32, 1);
+    `;
+    document.body.appendChild(overlay);
+    
     // Add transition class to html element
     document.documentElement.classList.add('theme-transitioning');
     
+    // Animate overlay in
+    requestAnimationFrame(() => {
+      overlay.style.opacity = '1';
+    });
+    
     setTimeout(() => {
+      // Toggle theme
       setIsDarkMode(!isDarkMode);
       document.documentElement.classList.toggle('dark');
       localStorage.setItem('theme', !isDarkMode ? 'dark' : 'light');
       
-      // Remove transition class after theme change
+      // Animate overlay out
+      overlay.style.opacity = '0';
+      
+      // Clean up after transition
       setTimeout(() => {
         document.documentElement.classList.remove('theme-transitioning');
         setIsTransitioning(false);
-      }, 50);
-    }, 150);
+        if (overlay.parentNode) {
+          overlay.parentNode.removeChild(overlay);
+        }
+      }, 200);
+    }, 100);
   };
 
   return (
@@ -140,7 +170,7 @@ export default function Header() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onFocus={() => setIsSearchFocused(true)}
                     onBlur={() => setIsSearchFocused(false)}
-                    className="w-full pl-12 pr-16 py-3 bg-transparent border-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0 focus:outline-none text-sm"
+                    className="w-full pl-12 pr-16 py-3 bg-transparent border-0 text-primary-safe placeholder-subtle-safe focus:ring-0 focus:outline-none text-sm"
                   />
                   
                   <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex items-center gap-2">

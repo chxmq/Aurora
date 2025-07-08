@@ -27,13 +27,13 @@
   --radius: 0.75rem;
   
   /* Aurora brand gradient */
-  --brand-gradient: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%);
-  --brand-gradient-subtle: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(124, 58, 237, 0.05) 100%);
+  --brand-gradient: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+  --brand-gradient-subtle: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
   
   /* Glass morphism */
   --glass-bg: rgba(255, 255, 255, 0.1);
   --glass-border: rgba(255, 255, 255, 0.2);
-  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   
   /* Spacing and sizing */
   --header-height: 4rem;
@@ -42,10 +42,21 @@
   --player-height: 5rem;
   
   /* Transitions */
-  --transition-fast: 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  --transition-normal: 250ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  --transition-slow: 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  --transition-theme: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-theme: 400ms cubic-bezier(0.23, 1, 0.32, 1);
+  
+  /* Enhanced color variables with better contrast */
+  --text-primary: rgb(17 24 39);
+  --text-secondary: rgb(75 85 99);
+  --text-muted: rgb(107 114 128);
+  --text-accent: rgb(139 92 246);
+  
+  /* Background variables */
+  --bg-primary: rgb(255 255 255);
+  --bg-secondary: rgb(249 250 251);
+  --bg-muted: rgb(243 244 246);
 }
 
 .dark {
@@ -70,18 +81,31 @@
   --ring: 262 83% 58%;
   
   /* Dark theme glass morphism */
-  --glass-bg: rgba(15, 15, 15, 0.4);
+  --glass-bg: rgba(0, 0, 0, 0.2);
   --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  
+  /* Dark theme color variables with better contrast */
+  --text-primary: rgb(248 250 252);
+  --text-secondary: rgb(203 213 225);
+  --text-muted: rgb(148 163 184);
+  --text-accent: rgb(139 92 246);
+  
+  /* Dark background variables */
+  --bg-primary: rgb(15 23 42);
+  --bg-secondary: rgb(30 41 59);
+  --bg-muted: rgb(51 65 85);
 }
 
-/* Theme transition styles */
+/* Default no transition for initial load */
 html {
   transition: none;
 }
 
+/* Enhanced theme transition classes */
 html.theme-transitioning {
-  transition: background-color var(--transition-theme), color var(--transition-theme);
+  transition: background-color var(--transition-theme), 
+              color var(--transition-theme);
 }
 
 html.theme-transitioning * {
@@ -90,14 +114,52 @@ html.theme-transitioning * {
               border-color var(--transition-theme),
               box-shadow var(--transition-theme),
               fill var(--transition-theme),
-              stroke var(--transition-theme) !important;
+              stroke var(--transition-theme),
+              backdrop-filter var(--transition-theme) !important;
 }
 
 /* Preserve specific transitions during theme change */
 html.theme-transitioning .btn-primary,
 html.theme-transitioning .btn-ghost,
-html.theme-transitioning .interactive {
+html.theme-transitioning .interactive,
+html.theme-transitioning .card-glass,
+html.theme-transitioning .glass {
   transition: all var(--transition-theme) !important;
+}
+
+/* Enhanced gradient transitions */
+html.theme-transitioning .bg-gradient-to-r,
+html.theme-transitioning .bg-gradient-to-br,
+html.theme-transitioning .bg-gradient-to-l {
+  transition: background-image var(--transition-theme) !important;
+}
+
+/* Better text color transitions */
+html.theme-transitioning .text-primary-safe,
+html.theme-transitioning .text-secondary-safe,
+html.theme-transitioning .text-muted-safe,
+html.theme-transitioning .text-subtle-safe {
+  transition: color var(--transition-theme) !important;
+}
+
+/* Smooth shadow transitions */
+html.theme-transitioning .shadow-xl,
+html.theme-transitioning .shadow-2xl,
+html.theme-transitioning .shadow-glow {
+  transition: box-shadow var(--transition-theme) !important;
+}
+
+/* Enhanced text color utilities with better contrast */
+html.theme-transitioning .text-primary {
+  color: var(--text-primary) !important;
+}
+
+html.theme-transitioning .text-secondary {
+  color: var(--text-secondary) !important;
+}
+
+html.theme-transitioning .text-muted {
+  color: var(--text-muted) !important;
 }
 
 @layer base {
@@ -809,4 +871,43 @@ html.theme-transitioning .interactive {
   z-index: 10;
   pointer-events: none;
   box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+}
+
+/* Enhanced text color utilities with better contrast */
+.text-primary-safe {
+  @apply text-gray-900 dark:text-gray-50 transition-colors duration-300;
+}
+
+.text-secondary-safe {
+  @apply text-gray-700 dark:text-gray-200 transition-colors duration-300;
+}
+
+.text-muted-safe {
+  @apply text-gray-600 dark:text-gray-300 transition-colors duration-300;
+}
+
+.text-subtle-safe {
+  @apply text-gray-500 dark:text-gray-400 transition-colors duration-300;
+}
+
+/* Enhanced background utilities */
+.bg-primary-safe {
+  @apply bg-white dark:bg-gray-900 transition-colors duration-300;
+}
+
+.bg-secondary-safe {
+  @apply bg-gray-50 dark:bg-gray-800 transition-colors duration-300;
+}
+
+.bg-muted-safe {
+  @apply bg-gray-100 dark:bg-gray-700 transition-colors duration-300;
+}
+
+/* Better hover states with proper contrast */
+.hover-bg-safe {
+  @apply hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200;
+}
+
+.hover-text-safe {
+  @apply hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200;
 }

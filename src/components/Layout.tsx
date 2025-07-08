@@ -82,7 +82,7 @@ export const Layout = () => {
         <div className="fixed inset-x-0 bottom-20 z-40 px-4 pointer-events-none">
           <div className="glass-nav mx-auto max-w-sm px-6 py-3 pointer-events-auto animate-scale-in">
             <div className="flex justify-center">
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <span className="text-sm font-medium text-muted-safe">
                 Swipe up for navigation
               </span>
             </div>
