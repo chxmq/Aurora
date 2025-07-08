@@ -1,73 +1,41 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 interface AudioVisualizerProps {
-  audioElement: HTMLAudioElement | null;
+  analyserNode: AnalyserNode | null;
   isPlaying: boolean;
   type?: 'waveform' | 'spectrum' | 'circular';
   className?: string;
 }
 
 export default function AudioVisualizer({ 
-  audioElement, 
+  analyserNode, 
   isPlaying, 
   type = 'spectrum',
   className 
 }: AudioVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>();
-  const analyserRef = useRef<AnalyserNode | null>(null);
   const dataArrayRef = useRef<Uint8Array | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    if (!audioElement || !canvasRef.current) return;
+    if (!analyserNode || !canvasRef.current) return;
 
-    const initializeAudioContext = async () => {
-      try {
-        if (!audioContextRef.current) {
-          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-        }
-
-        if (audioContextRef.current.state === 'suspended') {
-          await audioContextRef.current.resume();
-        }
-
-        if (!sourceRef.current) {
-          sourceRef.current = audioContextRef.current.createMediaElementSource(audioElement);
-          analyserRef.current = audioContextRef.current.createAnalyser();
-          
-          analyserRef.current.fftSize = type === 'waveform' ? 2048 : 256;
-          analyserRef.current.smoothingTimeConstant = 0.8;
-          
-          sourceRef.current.connect(analyserRef.current);
-          analyserRef.current.connect(audioContextRef.current.destination);
-          
-          const bufferLength = type === 'waveform' 
-            ? analyserRef.current.fftSize 
-            : analyserRef.current.frequencyBinCount;
-          dataArrayRef.current = new Uint8Array(bufferLength);
-          
-          setIsInitialized(true);
-        }
-      } catch (error) {
-        console.error('Error initializing audio context:', error);
-      }
-    };
-
-    initializeAudioContext();
+    // Set up data array
+    const bufferLength = type === 'waveform' 
+      ? analyserNode.fftSize 
+      : analyserNode.frequencyBinCount;
+    dataArrayRef.current = new Uint8Array(bufferLength);
 
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [audioElement, type]);
+  }, [analyserNode, type]);
 
   useEffect(() => {
-    if (!isInitialized || !isPlaying || !analyserRef.current || !dataArrayRef.current) {
+    if (!analyserNode || !isPlaying || !dataArrayRef.current) {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
@@ -81,16 +49,16 @@ export default function AudioVisualizer({
     if (!ctx) return;
 
     const draw = () => {
-      if (!analyserRef.current || !dataArrayRef.current) return;
+      if (!analyserNode || !dataArrayRef.current) return;
 
       if (type === 'waveform') {
-        analyserRef.current.getByteTimeDomainData(dataArrayRef.current);
+        analyserNode.getByteTimeDomainData(dataArrayRef.current);
         drawWaveform(ctx, canvas, dataArrayRef.current);
       } else if (type === 'spectrum') {
-        analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+        analyserNode.getByteFrequencyData(dataArrayRef.current);
         drawSpectrum(ctx, canvas, dataArrayRef.current);
       } else if (type === 'circular') {
-        analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+        analyserNode.getByteFrequencyData(dataArrayRef.current);
         drawCircular(ctx, canvas, dataArrayRef.current);
       }
 
@@ -104,7 +72,7 @@ export default function AudioVisualizer({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isInitialized, isPlaying, type]);
+  }, [analyserNode, isPlaying, type]);
 
   const drawWaveform = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, dataArray: Uint8Array) => {
     const width = canvas.width;
@@ -205,14 +173,17 @@ export default function AudioVisualizer({
   };
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={type === 'circular' ? 200 : 300}
-      height={type === 'circular' ? 200 : 100}
-      className={cn(
-        'rounded-lg bg-black/20 backdrop-blur-sm',
-        className
-      )}
-    />
+    <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+      <canvas
+        ref={canvasRef}
+        width={type === 'circular' ? 140 : 220}
+        height={type === 'circular' ? 140 : 70}
+        className={cn(
+          'rounded-lg bg-black/20 backdrop-blur-sm scale-90',
+          className
+        )}
+        style={{ maxWidth: type === 'circular' ? 160 : 240 }}
+      />
+    </div>
   );
 }

@@ -58,6 +58,7 @@ globalAudio.crossOrigin = "anonymous";
 let audioContext: AudioContext | null = null;
 let audioSource: MediaElementAudioSourceNode | null = null;
 let gainNode: GainNode | null = null;
+let analyserNode: AnalyserNode | null = null;
 
 // Initialize audio context on first user interaction
 const initAudioContext = async () => {
@@ -66,7 +67,11 @@ const initAudioContext = async () => {
       audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       audioSource = audioContext.createMediaElementSource(globalAudio);
       gainNode = audioContext.createGain();
-      audioSource.connect(gainNode);
+      analyserNode = audioContext.createAnalyser();
+      analyserNode.fftSize = 256;
+      analyserNode.smoothingTimeConstant = 0.8;
+      audioSource.connect(analyserNode);
+      analyserNode.connect(gainNode);
       gainNode.connect(audioContext.destination);
       console.log('Audio context initialized');
     } catch (error) {
@@ -92,6 +97,7 @@ export const audioStore = {
   audioElement: globalAudio,
   audioContext: null as AudioContext | null,
   gainNode: null as GainNode | null,
+  analyserNode: null as AnalyserNode | null,
   volume: 0.8,
   isMuted: false,
   isLooping: false,
@@ -168,6 +174,7 @@ export const audioStore = {
     try {
       this.audioContext = await initAudioContext();
       this.gainNode = gainNode;
+      this.analyserNode = analyserNode;
       
       if (this.audioContext && this.audioContext.state === 'suspended') {
         console.log('Resuming audio context...');
@@ -778,10 +785,6 @@ export default function EnhancedMusicPlayer({ className, minimized = false }: En
                   <Settings className="w-4 h-4" />
                   Equalizer
                 </TabsTrigger>
-                <TabsTrigger value="lyrics" className="gap-2">
-                  <Music className="w-4 h-4" />
-                  Lyrics
-                </TabsTrigger>
                 <TabsTrigger value="crossfade" className="gap-2">
                   <Shuffle className="w-4 h-4" />
                   Crossfade
@@ -792,13 +795,13 @@ export default function EnhancedMusicPlayer({ className, minimized = false }: En
                 <TabsContent value="visualizer" className="h-full m-0 p-4">
                   <div className="flex items-center justify-center gap-6 h-full">
                     <AudioVisualizer 
-                      audioElement={audioStore.audioElement}
+                      analyserNode={audioStore.analyserNode}
                       isPlaying={isPlaying}
                       type="spectrum"
                       className="flex-1"
                     />
                     <AudioVisualizer 
-                      audioElement={audioStore.audioElement}
+                      analyserNode={audioStore.analyserNode}
                       isPlaying={isPlaying}
                       type="circular"
                     />
@@ -810,16 +813,7 @@ export default function EnhancedMusicPlayer({ className, minimized = false }: En
                     audioContext={audioStore.audioContext}
                     sourceNode={audioSource}
                     destinationNode={gainNode}
-                    className="h-full"
-                  />
-                </TabsContent>
-                
-                <TabsContent value="lyrics" className="h-full m-0">
-                  <LyricsDisplay 
-                    lyrics={currentTrack.lyrics}
-                    currentTime={currentTime}
-                    isPlaying={isPlaying}
-                    className="h-full"
+                    className="h-full w-full"
                   />
                 </TabsContent>
                 

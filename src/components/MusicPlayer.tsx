@@ -58,6 +58,7 @@ globalAudio.crossOrigin = "anonymous";
 let audioContext: AudioContext | null = null;
 let audioSource: MediaElementAudioSourceNode | null = null;
 let gainNode: GainNode | null = null;
+let analyserNode: AnalyserNode | null = null;
 
 // Initialize audio context on first user interaction
 const initAudioContext = async () => {
@@ -66,7 +67,11 @@ const initAudioContext = async () => {
       audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       audioSource = audioContext.createMediaElementSource(globalAudio);
       gainNode = audioContext.createGain();
-      audioSource.connect(gainNode);
+      analyserNode = audioContext.createAnalyser();
+      analyserNode.fftSize = 256;
+      analyserNode.smoothingTimeConstant = 0.8;
+      audioSource.connect(analyserNode);
+      analyserNode.connect(gainNode);
       gainNode.connect(audioContext.destination);
       console.log('Audio context initialized');
     } catch (error) {
@@ -92,6 +97,7 @@ export const audioStore = {
   audioElement: globalAudio,
   audioContext: null as AudioContext | null,
   gainNode: null as GainNode | null,
+  analyserNode: null as AnalyserNode | null,
   volume: 0.8,
   isMuted: false,
   isLooping: false,
@@ -168,6 +174,7 @@ export const audioStore = {
     try {
       this.audioContext = await initAudioContext();
       this.gainNode = gainNode;
+      this.analyserNode = analyserNode;
       
       if (this.audioContext && this.audioContext.state === 'suspended') {
         console.log('Resuming audio context...');
@@ -846,10 +853,6 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
                   <Settings className="w-4 h-4" />
                   Equalizer
                 </TabsTrigger>
-                <TabsTrigger value="lyrics" className="gap-2">
-                  <Music className="w-4 h-4" />
-                  Lyrics
-                </TabsTrigger>
                 <TabsTrigger value="crossfade" className="gap-2">
                   <Shuffle className="w-4 h-4" />
                   Crossfade
@@ -858,18 +861,27 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
               
               <div className="h-64 overflow-hidden">
                 <TabsContent value="visualizer" className="h-full m-0 p-4">
-                  <div className="flex items-center justify-center gap-6 h-full">
-                    <AudioVisualizer 
-                      audioElement={audioStore.audioElement}
-                      isPlaying={isPlaying}
-                      type="spectrum"
-                      className="flex-1"
-                    />
-                    <AudioVisualizer 
-                      audioElement={audioStore.audioElement}
-                      isPlaying={isPlaying}
-                      type="circular"
-                    />
+                  <div className="flex flex-col md:flex-row items-center justify-center gap-8 w-full max-w-5xl mx-auto py-8 px-2 md:px-8">
+                    {/* Spectrum Visualizer - Large Wide Card */}
+                    <div className="flex flex-col items-center justify-center bg-white/60 dark:bg-black/40 rounded-3xl shadow-xl border border-white/30 dark:border-gray-800/40 p-6 md:p-8 backdrop-blur-md transition-all duration-300 w-full max-w-3xl min-h-[220px] mr-0 md:mr-6" style={{ flex: 2 }}>
+                      <AudioVisualizer 
+                        analyserNode={audioStore.analyserNode}
+                        isPlaying={isPlaying}
+                        type="spectrum"
+                        className="w-full h-full"
+                      />
+                      <span className="mt-4 text-base font-semibold text-gray-800 dark:text-gray-100 tracking-wide drop-shadow-sm">Spectrum</span>
+                    </div>
+                    {/* Circular Visualizer - Square Card */}
+                    <div className="flex flex-col items-center justify-center bg-white/60 dark:bg-black/40 rounded-3xl shadow-xl border border-white/30 dark:border-gray-800/40 p-6 md:p-8 backdrop-blur-md transition-all duration-300 w-full max-w-xs min-h-[220px] mt-8 md:mt-0" style={{ flex: 1 }}>
+                      <AudioVisualizer 
+                        analyserNode={audioStore.analyserNode}
+                        isPlaying={isPlaying}
+                        type="circular"
+                        className="w-full h-full"
+                      />
+                      <span className="mt-4 text-base font-semibold text-gray-800 dark:text-gray-100 tracking-wide drop-shadow-sm">Circular</span>
+                    </div>
                   </div>
                 </TabsContent>
                 
@@ -878,16 +890,7 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
                     audioContext={audioStore.audioContext}
                     sourceNode={audioSource}
                     destinationNode={gainNode}
-                    className="h-full"
-                  />
-                </TabsContent>
-                
-                <TabsContent value="lyrics" className="h-full m-0">
-                  <LyricsDisplay 
-                    lyrics={currentTrack.lyrics}
-                    currentTime={currentTime}
-                    isPlaying={isPlaying}
-                    className="h-full"
+                    className="h-full w-full"
                   />
                 </TabsContent>
                 

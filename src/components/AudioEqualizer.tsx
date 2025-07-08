@@ -38,6 +38,8 @@ const EQUALIZER_PRESETS: EqualizerPreset[] = [
 
 const FREQUENCY_BANDS = [60, 170, 310, 600, 1000, 3000, 6000, 12000, 14000, 16000];
 
+const EQUALIZER_STORAGE_KEY = 'aurora-equalizer-settings';
+
 export default function AudioEqualizer({ 
   audioContext, 
   sourceNode, 
@@ -50,15 +52,37 @@ export default function AudioEqualizer({
   const filtersRef = useRef<BiquadFilterNode[]>([]);
   const gainNodeRef = useRef<GainNode | null>(null);
 
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(EQUALIZER_STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.preset) setSelectedPreset(parsed.preset);
+        if (typeof parsed.isEnabled === 'boolean') setIsEnabled(parsed.isEnabled);
+        if (Array.isArray(parsed.bands)) {
+          setBands(parsed.bands);
+        }
+      } catch {}
+    }
+  }, []);
+
+  // Save settings to localStorage whenever they change
+  useEffect(() => {
+    if (bands.length === 0) return;
+    localStorage.setItem(EQUALIZER_STORAGE_KEY, JSON.stringify({
+      preset: selectedPreset,
+      isEnabled,
+      bands: bands.map(b => ({ frequency: b.frequency, gain: b.gain }))
+    }));
+  }, [bands, selectedPreset, isEnabled]);
+
   // Initialize equalizer
   useEffect(() => {
     if (!audioContext || !sourceNode || !destinationNode) return;
 
     try {
-      // Create gain node for overall volume control
       gainNodeRef.current = audioContext.createGain();
-      
-      // Create filter nodes for each frequency band
       const filters = FREQUENCY_BANDS.map((frequency, index) => {
         const filter = audioContext.createBiquadFilter();
         filter.type = index === 0 ? 'lowshelf' : 
@@ -70,58 +94,65 @@ export default function AudioEqualizer({
       });
 
       filtersRef.current = filters;
-
-      // Connect the audio chain
       let currentNode: AudioNode = sourceNode;
-      
       filters.forEach(filter => {
         currentNode.connect(filter);
         currentNode = filter;
       });
-      
       currentNode.connect(gainNodeRef.current);
       gainNodeRef.current.connect(destinationNode);
 
-      // Initialize bands state
-      const initialBands = FREQUENCY_BANDS.map((frequency, index) => ({
-        frequency,
-        gain: 0,
-        filter: filters[index]
-      }));
-
+      // Restore bands from localStorage if available
+      const saved = localStorage.getItem(EQUALIZER_STORAGE_KEY);
+      let initialBands;
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed.bands) && parsed.bands.length === FREQUENCY_BANDS.length) {
+            initialBands = FREQUENCY_BANDS.map((frequency, index) => ({
+              frequency,
+              gain: parsed.bands[index].gain,
+              filter: filters[index]
+            }));
+            // Set filter gains
+            parsed.bands.forEach((b, i) => {
+              filters[i].gain.value = b.gain;
+            });
+          }
+        } catch {}
+      }
+      if (!initialBands) {
+        initialBands = FREQUENCY_BANDS.map((frequency, index) => ({
+          frequency,
+          gain: 0,
+          filter: filters[index]
+        }));
+      }
       setBands(initialBands);
     } catch (error) {
       console.error('Error initializing equalizer:', error);
     }
 
     return () => {
-      // Cleanup
       filtersRef.current.forEach(filter => {
         try {
           filter.disconnect();
-        } catch (e) {
-          // Filter might already be disconnected
-        }
+        } catch (e) {}
       });
       if (gainNodeRef.current) {
         try {
           gainNodeRef.current.disconnect();
-        } catch (e) {
-          // Node might already be disconnected
-        }
+        } catch (e) {}
       }
     };
   }, [audioContext, sourceNode, destinationNode]);
 
   const updateBandGain = (bandIndex: number, gain: number) => {
     if (!filtersRef.current[bandIndex]) return;
-
     const clampedGain = Math.max(-12, Math.min(12, gain));
-    
     setBands(prev => prev.map((band, index) => 
       index === bandIndex ? { ...band, gain: clampedGain } : band
     ));
-
     if (isEnabled) {
       filtersRef.current[bandIndex].gain.value = clampedGain;
     }
@@ -130,9 +161,7 @@ export default function AudioEqualizer({
   const applyPreset = (presetName: string) => {
     const preset = EQUALIZER_PRESETS.find(p => p.name === presetName);
     if (!preset) return;
-
     setSelectedPreset(presetName);
-    
     preset.gains.forEach((gain, index) => {
       updateBandGain(index, gain);
     });
@@ -144,7 +173,6 @@ export default function AudioEqualizer({
 
   const toggleEqualizer = () => {
     setIsEnabled(!isEnabled);
-    
     filtersRef.current.forEach((filter, index) => {
       if (filter) {
         filter.gain.value = isEnabled ? 0 : bands[index]?.gain || 0;
@@ -160,10 +188,10 @@ export default function AudioEqualizer({
   };
 
   return (
-    <div className={cn('p-4 bg-secondary/20 rounded-xl space-y-4', className)}>
+    <div className={cn('p-2 bg-secondary/20 rounded-xl space-y-2 scale-90', className)} style={{ maxWidth: 900, margin: '0 auto' }}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Equalizer</h3>
+        <h3 className="text-base font-semibold">Equalizer</h3>
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -184,15 +212,15 @@ export default function AudioEqualizer({
       </div>
 
       {/* Preset Selection */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Preset</label>
+      <div className="space-y-1">
+        <label className="text-xs font-medium">Preset</label>
         <Select value={selectedPreset} onValueChange={applyPreset}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full text-xs h-8">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {EQUALIZER_PRESETS.map(preset => (
-              <SelectItem key={preset.name} value={preset.name}>
+              <SelectItem key={preset.name} value={preset.name} className="text-xs">
                 {preset.name}
               </SelectItem>
             ))}
@@ -201,17 +229,17 @@ export default function AudioEqualizer({
       </div>
 
       {/* Frequency Bands */}
-      <div className="space-y-4">
-        <div className="grid grid-cols-5 lg:grid-cols-10 gap-2">
+      <div className="space-y-2">
+        <div className="flex gap-1 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: 'touch' }}>
           {bands.map((band, index) => (
-            <div key={band.frequency} className="flex flex-col items-center space-y-2">
+            <div key={band.frequency} className="flex flex-col items-center space-y-1 min-w-[40px]">
               {/* Gain Value */}
-              <div className="text-xs font-mono w-8 text-center">
+              <div className="text-[10px] font-mono w-7 text-center">
                 {band.gain > 0 ? '+' : ''}{band.gain.toFixed(1)}
               </div>
               
               {/* Slider */}
-              <div className="h-32 flex items-center">
+              <div className="h-24 flex items-center">
                 <Slider
                   value={[band.gain]}
                   onValueChange={([value]) => updateBandGain(index, value)}
@@ -225,7 +253,7 @@ export default function AudioEqualizer({
               </div>
               
               {/* Frequency Label */}
-              <div className="text-xs text-muted-foreground text-center">
+              <div className="text-[10px] text-muted-foreground text-center">
                 {formatFrequency(band.frequency)}Hz
               </div>
             </div>
@@ -234,16 +262,16 @@ export default function AudioEqualizer({
       </div>
 
       {/* Visual Indicator */}
-      <div className="flex items-center justify-center space-x-1">
+      <div className="flex items-center justify-center space-x-0.5">
         {bands.map((band, index) => (
           <div
             key={index}
             className={cn(
-              'w-2 bg-primary/20 rounded-full transition-all duration-200',
+              'w-1.5 bg-primary/20 rounded-full transition-all duration-200',
               isEnabled && band.gain !== 0 ? 'bg-primary' : ''
             )}
             style={{
-              height: `${Math.max(4, Math.abs(band.gain) * 2 + 4)}px`
+              height: `${Math.max(3, Math.abs(band.gain) * 1.5 + 3)}px`
             }}
           />
         ))}
