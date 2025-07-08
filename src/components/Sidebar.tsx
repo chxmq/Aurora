@@ -76,8 +76,12 @@ export default function Sidebar() {
         <Link to="/" className="flex items-center group">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="w-10 h-10 bg-gradient-to-br from-brand-500 to-brand-600 rounded-2xl flex items-center justify-center shadow-glow transition-all duration-300 group-hover:shadow-glow-lg group-hover:scale-110">
-                <span className="text-white font-bold text-lg">A</span>
+              <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-glow transition-all duration-300 group-hover:shadow-glow-lg group-hover:scale-110">
+                <img 
+                  src="/images/aurora-logo.png" 
+                  alt="Aurora" 
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div className="absolute -top-1 -right-1 w-4 h-4 bg-accent-emerald rounded-full animate-pulse"></div>
             </div>

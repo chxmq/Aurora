@@ -128,8 +128,12 @@ export default function Header() {
           <>
             <Link to="/" className="flex items-center group">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-brand-500 to-brand-600 rounded-xl flex items-center justify-center shadow-glow transition-all duration-300 group-hover:shadow-glow-lg group-hover:scale-110">
-                  <span className="text-white font-bold text-sm">A</span>
+                <div className="w-8 h-8 rounded-xl overflow-hidden shadow-glow transition-all duration-300 group-hover:shadow-glow-lg group-hover:scale-110">
+                  <img 
+                    src="/images/aurora-logo.png" 
+                    alt="Aurora" 
+                    className="w-full h-full object-contain"
+                  />
                 </div>
                 <span className="bg-gradient-to-r from-brand-600 to-brand-700 bg-clip-text text-transparent font-bold">Aurora</span>
               </div>
