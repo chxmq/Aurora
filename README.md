@@ -1,6 +1,6 @@
-# DMusic App
+# Aurora
 
-DMusic App is a modern, decentralized music sharing and streaming platform. It allows users to upload, discover, and listen to music tracks, interact with artists, and participate in a vibrant music community. The app leverages decentralized storage solutions for music files and provides a social experience with features like comments, tips, and following artists.
+Aurora is a modern, decentralized music sharing and streaming platform. It allows users to upload, discover, and listen to music tracks, interact with artists, and participate in a vibrant music community. The app leverages decentralized storage solutions for music files and provides a social experience with features like comments, tips, and following artists.
 
 ## Features
 - 🎵 Stream and discover music tracks
