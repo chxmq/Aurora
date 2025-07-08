@@ -1,60 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Track } from "@/lib/types";
-import { 
-  Play, 
-  Pause, 
-  SkipBack, 
-  SkipForward, 
-  Volume2, 
-  VolumeX, 
-  Repeat, 
-  Shuffle,
-  Heart,
-  MoreHorizontal,
-  Maximize2,
-  ChevronUp,
-  Share,
-  Download,
-  Volume1
-} from "lucide-react";
-import { AvatarWithVerify } from "@/components/ui/avatar-with-verify";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { mockTracks } from "@/lib/mockData";
-import { Slider } from "@/components/ui/slider";
-import { toast } from "sonner";
-import { getFileUrl } from "@/lib/fileStorage";
-import { getGatewayUrl } from "@/lib/utils";
+// Re-export the enhanced music player as the default music player
+import EnhancedMusicPlayer from './EnhancedMusicPlayer';
+export { audioStore } from './EnhancedMusicPlayer';
 
-interface AudioState {
-  volume: number;
-  isMuted: boolean;
-  isLooping: boolean;
-  isShuffling: boolean;
-  currentTime: number;
-  duration: number;
-  buffered: number;
-}
-
-interface MusicPlayerProps {
-  className?: string;
-  minimized?: boolean;
-}
-
-// Create a single global audio instance
-const globalAudio = new Audio();
-globalAudio.preload = "auto";
-globalAudio.crossOrigin = "anonymous";
-
-// Add audio context for better control
-let audioContext: AudioContext | null = null;
-let audioSource: MediaElementAudioSourceNode | null = null;
-let gainNode: GainNode | null = null;
-
-// Initialize audio context on first user interaction
-const initAudioContext = async () => {
-  if (!audioContext) {
-    try {
       audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       audioSource = audioContext.createMediaElementSource(globalAudio);
       gainNode = audioContext.createGain();
