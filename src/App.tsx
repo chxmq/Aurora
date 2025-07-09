@@ -15,6 +15,7 @@ import Profile from "@/pages/Profile";
 import Notifications from "@/pages/Notifications";
 import StorageMonitor from "@/pages/StorageMonitor";
 import NotFound from "@/pages/NotFound";
+import PostsPage from "@/pages/Posts";
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
                   <Route path="profile" element={<Profile />} />
                   <Route path="notifications" element={<Notifications />} />
                   <Route path="storage-monitor" element={<StorageMonitor />} />
+                  <Route path="posts" element={<PostsPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Route>
               </Routes>

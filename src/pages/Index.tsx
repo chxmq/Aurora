@@ -205,7 +205,7 @@ export default function Index() {
             </p>
           </div>
           <Button asChild variant="outline" className="btn-ghost">
-            <Link to="/explore">
+            <Link to="/posts">
               View All Posts
               <Share className="ml-2 h-4 w-4" />
             </Link>
