@@ -44,7 +44,7 @@ interface AudioState {
   buffered: number;
 }
 
-interface MusicPlayerProps {
+interface EnhancedMusicPlayerProps {
   className?: string;
   minimized?: boolean;
 }
@@ -320,18 +320,6 @@ export const audioStore = {
     }
   },
 
-  replay() {
-    try {
-      this.audioElement.currentTime = 0;
-      if (!this.isPlaying) {
-        this.play();
-      }
-    } catch (error) {
-      console.error("Error replaying audio:", error);
-      toast.error("Error replaying audio. Please try again.");
-    }
-  },
-
   setVolume(volume: number) {
     this.volume = volume;
     this.audioElement.volume = this.isMuted ? 0 : volume;
@@ -470,63 +458,7 @@ globalAudio.addEventListener('error', (e) => {
   audioStore.handleAudioError(e, 'global error');
 });
 
-// Export utility functions
-export function playTrack(trackId: string) {
-  console.log('playTrack called with:', trackId);
-  return audioStore.setCurrentTrack(trackId, true);
-}
-
-export function pauseTrack() {
-  console.log('pauseTrack called');
-  audioStore.pause();
-}
-
-export function togglePlayPause() {
-  console.log('togglePlayPause called');
-  return audioStore.togglePlay();
-}
-
-export function seekTo(time: number) {
-  audioStore.seekTo(time);
-}
-
-export function setVolume(volume: number) {
-  audioStore.setVolume(volume);
-}
-
-export function toggleMute() {
-  audioStore.setMuted(!audioStore.isMuted);
-}
-
-export function toggleLoop() {
-  audioStore.setLooping(!audioStore.isLooping);
-}
-
-export function toggleShuffle() {
-  audioStore.setShuffling(!audioStore.isShuffling);
-}
-
-export function getCurrentTrackId() {
-  return audioStore.currentTrackId;
-}
-
-export function getIsPlaying() {
-  return audioStore.isPlaying;
-}
-
-export function replayTrack() {
-  audioStore.replay();
-}
-
-export function skipToNextTrack() {
-  audioStore.skipToNext();
-}
-
-export function skipToPreviousTrack() {
-  audioStore.skipToPrevious();
-}
-
-export default function MusicPlayer({ className, minimized = false }: MusicPlayerProps) {
+export default function EnhancedMusicPlayer({ className, minimized = false }: EnhancedMusicPlayerProps) {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -861,31 +793,18 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
               
               <div className="h-64 overflow-hidden">
                 <TabsContent value="visualizer" className="h-full m-0 p-4">
-                  <div className="flex flex-col md:flex-row items-center justify-center gap-8 w-full max-w-5xl mx-auto pt-0 pb-0 px-0 md:px-0" style={{marginTop: 0}}>
-                    {/* Spectrum Visualizer - Large Wide Card */}
-                    <div className="flex flex-col items-center justify-center bg-white/60 dark:bg-black/40 rounded-3xl shadow-xl border border-white/30 dark:border-gray-800/40 p-0 md:p-0 backdrop-blur-md transition-all duration-300 w-full max-w-4xl mr-0 md:mr-6" style={{ flex: 2 }}>
-                      <div className="flex items-center justify-center w-full" style={{ minHeight: 180 }}>
-                        <AudioVisualizer 
-                          analyserNode={audioStore.analyserNode}
-                          isPlaying={isPlaying}
-                          type="spectrum"
-                          className="w-full"
-                          width={600}
-                          height={180}
-                        />
-                      </div>
-                      <span className="mt-4 text-base font-semibold text-gray-800 dark:text-gray-100 tracking-wide drop-shadow-sm">Spectrum</span>
-                    </div>
-                    {/* Circular Visualizer - Square Card */}
-                    <div className="flex flex-col items-center justify-center bg-white/60 dark:bg-black/40 rounded-3xl shadow-xl border border-white/30 dark:border-gray-800/40 p-0 md:p-0 backdrop-blur-md transition-all duration-300 w-full max-w-xs mt-0 md:mt-0" style={{ flex: 1 }}>
-                      <AudioVisualizer 
-                        analyserNode={audioStore.analyserNode}
-                        isPlaying={isPlaying}
-                        type="circular"
-                        className="w-full h-full"
-                      />
-                      <span className="mt-4 text-base font-semibold text-gray-800 dark:text-gray-100 tracking-wide drop-shadow-sm">Circular</span>
-                    </div>
+                  <div className="flex items-center justify-center gap-6 h-full">
+                    <AudioVisualizer 
+                      analyserNode={audioStore.analyserNode}
+                      isPlaying={isPlaying}
+                      type="spectrum"
+                      className="flex-1"
+                    />
+                    <AudioVisualizer 
+                      analyserNode={audioStore.analyserNode}
+                      isPlaying={isPlaying}
+                      type="circular"
+                    />
                   </div>
                 </TabsContent>
                 
