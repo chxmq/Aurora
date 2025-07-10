@@ -538,7 +538,7 @@ export default function CreatePage() {
                 
                 <Button
                   type="submit"
-                  className="w-full bg-music-primary hover:bg-music-secondary"
+                  className="w-full bg-gradient-to-r from-brand-500 to-purple-600 text-white font-semibold shadow-lg hover:from-brand-600 hover:to-purple-700 focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:outline-none transition-all duration-200"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? "Creating Track NFT..." : "Create Track NFT"}
@@ -610,7 +610,7 @@ export default function CreatePage() {
                 
                 <Button
                   type="submit"
-                  className="w-full bg-music-primary hover:bg-music-secondary"
+                  className="w-full bg-gradient-to-r from-brand-500 to-purple-600 text-white font-semibold shadow-lg hover:from-brand-600 hover:to-purple-700 focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:outline-none transition-all duration-200"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? "Creating Post..." : "Create Post"}

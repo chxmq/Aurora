@@ -205,7 +205,7 @@ export default function EditProfileModal({
             <DialogClose asChild>
               <Button variant="outline" type="button">Cancel</Button>
             </DialogClose>
-            <Button type="submit" disabled={isSubmitting} className="bg-music-primary hover:bg-music-secondary">
+            <Button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-brand-500 to-purple-600 text-white font-semibold shadow-lg hover:from-brand-600 hover:to-purple-700 focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:outline-none transition-all duration-200">
               {isSubmitting ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
