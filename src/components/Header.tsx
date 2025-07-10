@@ -161,8 +161,8 @@ export default function Header() {
                 <div className={cn(
                   "relative overflow-hidden rounded-2xl transition-all duration-300",
                   isSearchFocused 
-                    ? "glass shadow-glow ring-2 ring-brand-500/50" 
-                    : "bg-white/60 dark:bg-gray-800/60 backdrop-blur-md border border-white/30 dark:border-gray-700/30 hover:bg-white/80 dark:hover:bg-gray-800/80"
+                    ? "glass shadow-glow ring-2 ring-gray-500/80 border border-gray-500/80" 
+                    : "bg-white/60 dark:bg-gray-800/60 backdrop-blur-md border border-gray-400 dark:border-gray-600 hover:bg-white/80 dark:hover:bg-gray-800/80"
                 )}>
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-500 dark:text-gray-400 transition-colors duration-200 group-focus-within:text-brand-500" />
                   
