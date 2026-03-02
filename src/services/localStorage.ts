@@ -34,6 +34,7 @@ const getFromStorage = <T>(key: string): T | null => {
 const setToStorage = <T>(key: string, value: T): void => {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    window.dispatchEvent(new StorageEvent("storage", { key }));
   } catch (error) {
     console.error(`Error writing to localStorage [${key}]:`, error);
   }

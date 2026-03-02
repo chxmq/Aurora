@@ -51,7 +51,7 @@ function App() {
               
               {/* Toast notifications with Aurora styling */}
               <Toaster 
-                position="top-right"
+                position="bottom-left"
                 toastOptions={{
                   style: {
                     background: 'rgba(255, 255, 255, 0.1)',

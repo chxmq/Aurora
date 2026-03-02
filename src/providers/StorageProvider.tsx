@@ -43,10 +43,8 @@ export function StorageProvider({ children }: { children: React.ReactNode }) {
               jwt: PINATA_CONFIG.JWT,
             });
             setIsPinataInitialized(true);
-            toast.success('Pinata storage connected');
           } catch (err) {
             console.error('Pinata initialization failed:', err);
-            toast.error('Pinata connection failed – using local storage');
             setError(err instanceof Error ? err.message : 'Pinata initialization failed');
           }
         }

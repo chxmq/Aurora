@@ -48,26 +48,20 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
             if (accounts.length > 0) {
               setAddress(accounts[0]);
               setIsConnected(true);
-              
-              // Get balance
+
               const balance = await window.ethereum.request({
                 method: "eth_getBalance",
                 params: [accounts[0], "latest"],
               });
-              
+
               const ethBalance = parseInt(balance, 16) / 1e18;
               setBalance(ethBalance.toFixed(4));
-            } else {
-              // No accounts found but localStorage says connected
-            setIsConnected(false);
-            localStorage.removeItem("walletConnected");
-            toast.error("No connected accounts found. Please connect your wallet.");
-          }
+            }
+            // If no accounts returned, MetaMask is likely locked — keep
+            // walletConnected in localStorage so we reconnect when it unlocks.
         } catch (error) {
-          console.error("Error reconnecting wallet:", error);
-          setIsConnected(false);
-          localStorage.removeItem("walletConnected");
-          toast.error("Failed to reconnect wallet. Please connect manually.");
+          // Silently ignore reconnect errors on refresh; the user can
+          // reconnect manually if needed.
         }
       }
     };
@@ -75,14 +69,12 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     // Set up wallet event listeners
     const handleAccountsChanged = (accounts: string[]) => {
       if (accounts.length === 0) {
-        // User disconnected their wallet
         disconnectWallet();
       } else if (accounts[0] !== address) {
-        // User switched accounts
         setAddress(accounts[0]);
         setIsConnected(true);
         localStorage.setItem("walletConnected", "true");
-        toast.info("Wallet account changed");
+        if (address !== null) toast.info("Wallet account changed");
       }
     };
 
@@ -109,14 +101,18 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   
   // Connect wallet function
   const connectWallet = async () => {
-    // Check if MetaMask is installed
     if (typeof window.ethereum === "undefined") {
       toast.error("MetaMask is not installed. Please install MetaMask to continue.");
       return;
     }
-    
+
     try {
-      // Request accounts
+      // Force MetaMask to show the account picker every time
+      await window.ethereum.request({
+        method: "wallet_requestPermissions",
+        params: [{ eth_accounts: {} }],
+      });
+
       const accounts = await window.ethereum.request({
         method: "eth_requestAccounts",
       });

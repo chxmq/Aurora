@@ -4,8 +4,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/providers/walletUtils";
 import { useData } from "@/providers/DataProvider";
-import { getTracks, getPlaylistsForUser } from "@/services/localStorage";
-import { useState, useMemo } from "react";
+import { getTracks, getPlaylistsForUser, STORAGE_KEYS } from "@/services/localStorage";
+import { useState, useMemo, useEffect } from "react";
 
 const navItems = [
   { to: "/", icon: Home, label: "Home", primary: true },
@@ -25,15 +25,26 @@ export default function Sidebar() {
   const { isConnected } = useWallet();
   const { currentUser } = useData();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [storageVersion, setStorageVersion] = useState(0);
+
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEYS.TRACKS || e.key === STORAGE_KEYS.PLAYLISTS) {
+        setStorageVersion(v => v + 1);
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
 
   const likedCount = useMemo(
     () => (currentUser ? getTracks().filter(t => t.likedBy?.includes(currentUser.id)).length : 0),
-    [currentUser]
+    [currentUser, storageVersion]
   );
 
   const playlistCount = useMemo(
     () => (currentUser ? getPlaylistsForUser(currentUser.id).length : 0),
-    [currentUser]
+    [currentUser, storageVersion]
   );
   
   const getNavItemClasses = (isActive: boolean) => {
