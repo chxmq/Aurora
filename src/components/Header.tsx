@@ -4,7 +4,7 @@ import { Search, Bell, User, Menu, X, Sun, Moon, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useWallet } from "@/lib/walletUtils";
+import { useWallet } from "@/providers/walletUtils";
 import { cn } from "@/lib/utils";
 
 export default function Header() {

@@ -4,7 +4,7 @@ import { Home, Compass, Bell, User, BarChart3, PlusCircle, TrendingUp, Plus, Dat
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
-import { useWallet } from "@/lib/walletUtils";
+import { useWallet } from "@/providers/walletUtils";
 import { useState } from "react";
 
 const navItems = [

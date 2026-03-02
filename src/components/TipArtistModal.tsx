@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AvatarWithVerify } from "@/components/ui/avatar-with-verify";
 import { User } from "@/lib/types";
-import { useWallet } from "@/lib/walletUtils";
+import { useWallet } from "@/providers/walletUtils";
 import { toast } from "sonner";
 
 interface TipArtistModalProps {

@@ -1,36 +1,45 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AvatarWithVerify } from "@/components/ui/avatar-with-verify";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Users, Music } from "lucide-react";
 import MusicTrackCard from "@/components/MusicTrackCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getUsers, getTracks } from "@/lib/localStorage";
+import { getUsers, getTracks } from "@/services/localStorage";
+import { User, Track } from "@/lib/types";
 
 export default function ExplorePage() {
-  const [allUsers, setAllUsers] = useState(getUsers());
-  const [featuredUsers, setFeaturedUsers] = useState([...getUsers()].sort(() => Math.random() - 0.5));
-  const [allTracks, setAllTracks] = useState(getTracks());
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [allTracks, setAllTracks] = useState<Track[]>([]);
   const [activeTab, setActiveTab] = useState("featured");
 
-  // Poll for new users and tracks every 10 seconds
-  useEffect(() => {
-    const poll = () => {
-      const users = getUsers();
-      setAllUsers(users);
-      setFeaturedUsers([...users].sort(() => Math.random() - 0.5));
-      setAllTracks(getTracks());
-    };
-    const interval = setInterval(poll, 10000);
-    return () => clearInterval(interval);
+  const refresh = useCallback(() => {
+    const users = getUsers();
+    const tracks = getTracks();
+    setAllUsers(users);
+    setAllTracks(tracks);
   }, []);
 
-  // Sort tracks by different criteria
-  const verifiedArtists = allUsers.filter(user => user.isVerified);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key?.startsWith("sai_music_")) refresh();
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, [refresh]);
+
+  const verifiedArtists = allUsers.filter((u) => u.isVerified);
+  const featuredUsers = [...allUsers].sort(() => Math.random() - 0.5).slice(0, 8);
+
   const risingStars = [...allTracks]
     .sort((a, b) => {
-      const aGrowth = (a.likes + a.plays) / ((Date.now() - new Date(a.createdAt).getTime()) / (1000 * 60 * 60 * 24));
-      const bGrowth = (b.likes + b.plays) / ((Date.now() - new Date(b.createdAt).getTime()) / (1000 * 60 * 60 * 24));
-      return bGrowth - aGrowth;
+      const aAge = (Date.now() - new Date(a.createdAt).getTime()) / 86400000;
+      const bAge = (Date.now() - new Date(b.createdAt).getTime()) / 86400000;
+      return (b.likes + b.plays) / (bAge || 1) - (a.likes + a.plays) / (aAge || 1);
     })
     .slice(0, 8);
 
@@ -40,40 +49,62 @@ export default function ExplorePage() {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 8);
 
+  const EmptyTracks = () => (
+    <div className="flex flex-col items-center justify-center py-16 rounded-3xl border-2 border-dashed border-border/50 bg-muted/20">
+      <Music className="h-12 w-12 text-muted-foreground/40 mb-3" />
+      <h3 className="text-lg font-semibold text-muted-foreground mb-1">No tracks yet</h3>
+      <p className="text-sm text-muted-foreground mb-4">Be the first to upload a track.</p>
+      <Button asChild size="sm">
+        <Link to="/create">Upload Track</Link>
+      </Button>
+    </div>
+  );
+
+  const EmptyUsers = () => (
+    <div className="flex flex-col items-center justify-center py-12 rounded-3xl border-2 border-dashed border-border/50 bg-muted/20">
+      <Users className="h-12 w-12 text-muted-foreground/40 mb-3" />
+      <h3 className="text-lg font-semibold text-muted-foreground mb-1">No artists yet</h3>
+      <p className="text-sm text-muted-foreground">Connect your wallet to create a profile.</p>
+    </div>
+  );
+
   return (
     <div className="max-w-4xl mx-auto py-8">
       <h1 className="text-3xl font-bold mb-8">Explore</h1>
 
       <section className="mb-12">
         <h2 className="text-2xl font-semibold mb-6">Featured Artists</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {featuredUsers.slice(0, 8).map((user) => (
-            <Link 
-              key={user.id} 
-              to={`/profile/${user.id}`}
-              className="bg-secondary/50 rounded-lg p-4 hover:bg-secondary/70 transition"
-            >
-              <div className="flex flex-col items-center text-center">
-                <AvatarWithVerify
-                  src={user.avatar}
-                  fallback={user.displayName}
-                  isVerified={user.isVerified}
-                  size="lg"
-                  className="mb-3"
-                />
-                <h3 className="font-semibold">{user.displayName}</h3>
-                <p className="text-sm text-muted-foreground">{user.username}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {user.followers.toLocaleString()} followers
-                </p>
-                
-                <Button variant="outline" size="sm" className="mt-3">
-                  Follow
-                </Button>
-              </div>
-            </Link>
-          ))}
-        </div>
+        {featuredUsers.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {featuredUsers.map((user) => (
+              <Link
+                key={user.id}
+                to={`/profile/${user.id}`}
+                className="bg-secondary/50 rounded-lg p-4 hover:bg-secondary/70 transition"
+              >
+                <div className="flex flex-col items-center text-center">
+                  <AvatarWithVerify
+                    src={user.avatar}
+                    fallback={user.displayName}
+                    isVerified={user.isVerified}
+                    size="lg"
+                    className="mb-3"
+                  />
+                  <h3 className="font-semibold">{user.displayName}</h3>
+                  <p className="text-sm text-muted-foreground">{user.username}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {user.followers.toLocaleString()} followers
+                  </p>
+                  <Button variant="outline" size="sm" className="mt-3">
+                    Follow
+                  </Button>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <EmptyUsers />
+        )}
       </section>
 
       <section>
@@ -86,79 +117,60 @@ export default function ExplorePage() {
             <TabsTrigger value="rising">Rising Stars</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="featured">
-            <div className="grid grid-cols-1 gap-4">
-              {popularTracks.slice(0, 6).map((track) => (
-                <MusicTrackCard key={track.id} track={track} />
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="trending">
-            <div className="grid grid-cols-1 gap-4">
-              {trendingTracks.map((track) => (
-                <MusicTrackCard key={track.id} track={track} />
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="new">
-            <div className="grid grid-cols-1 gap-4">
-              {newTracks.map((track) => (
-                <MusicTrackCard key={track.id} track={track} />
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="popular">
-            <div className="grid grid-cols-1 gap-4">
-              {popularTracks.map((track) => (
-                <MusicTrackCard key={track.id} track={track} />
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="rising">
-            <div className="grid grid-cols-1 gap-4">
-              {risingStars.map((track) => (
-                <MusicTrackCard key={track.id} track={track} />
-              ))}
-            </div>
-          </TabsContent>
+          {[
+            { value: "featured", list: popularTracks.slice(0, 6) },
+            { value: "trending", list: trendingTracks },
+            { value: "new", list: newTracks },
+            { value: "popular", list: popularTracks },
+            { value: "rising", list: risingStars },
+          ].map(({ value, list }) => (
+            <TabsContent key={value} value={value}>
+              {list.length > 0 ? (
+                <div className="grid grid-cols-1 gap-4">
+                  {list.map((track) => (
+                    <MusicTrackCard key={track.id} track={track} />
+                  ))}
+                </div>
+              ) : (
+                <EmptyTracks />
+              )}
+            </TabsContent>
+          ))}
         </Tabs>
       </section>
 
-      <section className="mt-12">
-        <h2 className="text-2xl font-semibold mb-6">Verified Artists</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {verifiedArtists.slice(0, 8).map((user) => (
-            <Link 
-              key={user.id} 
-              to={`/profile/${user.id}`}
-              className="bg-secondary/50 rounded-lg p-4 hover:bg-secondary/70 transition"
-            >
-              <div className="flex flex-col items-center text-center">
-                <AvatarWithVerify
-                  src={user.avatar}
-                  fallback={user.displayName}
-                  isVerified={user.isVerified}
-                  size="lg"
-                  className="mb-3"
-                />
-                <h3 className="font-semibold">{user.displayName}</h3>
-                <p className="text-sm text-muted-foreground">{user.username}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {user.followers.toLocaleString()} followers
-                </p>
-                
-                <Button variant="outline" size="sm" className="mt-3">
-                  Follow
-                </Button>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
+      {verifiedArtists.length > 0 && (
+        <section className="mt-12">
+          <h2 className="text-2xl font-semibold mb-6">Verified Artists</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {verifiedArtists.slice(0, 8).map((user) => (
+              <Link
+                key={user.id}
+                to={`/profile/${user.id}`}
+                className="bg-secondary/50 rounded-lg p-4 hover:bg-secondary/70 transition"
+              >
+                <div className="flex flex-col items-center text-center">
+                  <AvatarWithVerify
+                    src={user.avatar}
+                    fallback={user.displayName}
+                    isVerified={user.isVerified}
+                    size="lg"
+                    className="mb-3"
+                  />
+                  <h3 className="font-semibold">{user.displayName}</h3>
+                  <p className="text-sm text-muted-foreground">{user.username}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {user.followers.toLocaleString()} followers
+                  </p>
+                  <Button variant="outline" size="sm" className="mt-3">
+                    Follow
+                  </Button>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

@@ -7,12 +7,11 @@ import { Heart, MessageSquare, Share2, Music, MoreHorizontal, Trash2, Image as I
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import CommentSection from "@/components/CommentSection";
-import { playTrack } from "@/components/MusicPlayer";
-import { mockTracks } from "@/lib/mockData";
-import { useWallet } from "@/lib/walletUtils";
+import { useWallet } from "@/providers/walletUtils";
+import { useData } from "@/providers/DataProvider";
 import { generateId } from "@/lib/utils";
-import { getFileUrl } from "@/lib/fileStorage";
-import { deletePost } from "@/lib/mockData";
+import { getFileUrl } from "@/services/fileStorage";
+import { deletePost } from "@/services/data";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,14 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getGatewayUrl } from "@/lib/utils";
 
-// Default images and tracks for fallbacks
-const DEFAULT_IMAGES = [
-  "/images/ncs1.jpg",
-  "/images/ncs2.jpg",
-  "/images/ncs3.jpg"
-];
-
-const DEFAULT_TRACKS = mockTracks.slice(0, 3);
+const DEFAULT_IMAGES = ["/images/ncs1.jpg", "/images/ncs2.jpg", "/images/ncs3.jpg"];
 
 interface PostCardProps {
   post: Post & { user: User };
@@ -43,9 +35,9 @@ export default function PostCard({ post, onDelete, className }: PostCardProps) {
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const { isConnected, address } = useWallet();
+  const { currentUser } = useData();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [currentTrack, setCurrentTrack] = useState(DEFAULT_TRACKS[0]);
-  const [timeAgo, setTimeAgo] = useState('');
+  const [timeAgo, setTimeAgo] = useState("");
   
   // Defensive fallback for missing user
   const safeUser = post.user || {
@@ -63,38 +55,8 @@ export default function PostCard({ post, onDelete, className }: PostCardProps) {
   // Check if current user is the post owner
   const isOwner = address && safeUser.walletAddress?.toLowerCase() === address.toLowerCase();
 
-  // Get a random default image
-  const getRandomDefaultImage = () => {
-    return DEFAULT_IMAGES[Math.floor(Math.random() * DEFAULT_IMAGES.length)];
-  };
-
-  // Get a random default track
-  const getRandomDefaultTrack = () => {
-    return DEFAULT_TRACKS[Math.floor(Math.random() * DEFAULT_TRACKS.length)];
-  };
-
-  // Find associated track
-  useEffect(() => {
-    try {
-      if (!post.content) {
-        setCurrentTrack(getRandomDefaultTrack());
-        return;
-      }
-      
-      const track = mockTracks.find(track => 
-        post.content.toLowerCase().includes(track.title.toLowerCase())
-      );
-      
-      if (!track) {
-        setCurrentTrack(getRandomDefaultTrack());
-      } else {
-        setCurrentTrack(track);
-      }
-    } catch (error) {
-      console.error('Error getting associated track:', error);
-      setCurrentTrack(getRandomDefaultTrack());
-    }
-  }, [post.content]);
+  const getRandomDefaultImage = () =>
+    DEFAULT_IMAGES[Math.floor(Math.random() * DEFAULT_IMAGES.length)];
 
   // Handle image URL conversion and fallback
   useEffect(() => {
@@ -139,19 +101,6 @@ export default function PostCard({ post, onDelete, className }: PostCardProps) {
     setImageUrl(getRandomDefaultImage());
   };
 
-  const handlePlayTrack = () => {
-    try {
-      // Show notification immediately
-      toast.success(`Now playing: ${currentTrack.title}`);
-      playTrack(currentTrack.id);
-    } catch (error) {
-      console.error('Error playing track:', error);
-      const defaultTrack = getRandomDefaultTrack();
-      setCurrentTrack(defaultTrack);
-      toast.success(`Now playing: ${defaultTrack.title}`);
-      playTrack(defaultTrack.id);
-    }
-  };
 
   const handleLike = () => {
     if (!isConnected) {
@@ -173,23 +122,22 @@ export default function PostCard({ post, onDelete, className }: PostCardProps) {
       return;
     }
     
-    // Create a new comment
     const newComment: Comment = {
       id: generateId(),
       content,
-      userId: '1', // In a real app, this would be the current user's ID
+      userId: currentUser?.id ?? "anon",
       postId: post.id,
       createdAt: new Date().toISOString(),
-      user: {
-        id: '1',
-        username: "@currentuser",
-        displayName: "Current User",
+      user: currentUser ?? {
+        id: "anon",
+        username: "@you",
+        displayName: "You",
         avatar: "/placeholder.svg",
         isVerified: false,
         followers: 0,
         following: 0,
-        posts: 0
-      }
+        posts: 0,
+      },
     };
     
     setComments([newComment, ...comments]);

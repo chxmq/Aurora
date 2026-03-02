@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getPinataUsage, getPinnedContent } from '@/lib/pinataStorage';
+import { getPinataUsage, getPinnedContent } from '@/services/pinata';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Database, HardDrive, Wifi } from 'lucide-react';

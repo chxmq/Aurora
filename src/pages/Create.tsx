@@ -5,39 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Music, Upload, FileMusic, X } from "lucide-react";
-import { useWallet } from "@/lib/walletUtils";
+import { useWallet } from "@/providers/walletUtils";
 import { toast } from "sonner";
-import { addPost, addTrack, getUserByWalletAddress, mockTracks } from "@/lib/mockData";
+import { addPost, addTrack, getUserByWalletAddress } from "@/services/data";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { uploadAudioToIPFS } from "@/lib/ipfsStorage";
-import { useStorage } from "@/lib/StorageProvider";
+import { uploadAudioToIPFS } from "@/services/ipfs";
+import { useStorage } from "@/providers/StorageProvider";
 import { generateId } from "@/lib/utils";
 import { FEATURES } from "@/lib/config";
-import { storeFile } from "@/lib/fileStorage";
-import { uploadAudioToPinata, uploadImageToPinata, saveTrackToPinata } from "@/lib/pinataStorage";
-import { PINATA_GATEWAY } from "@/lib/pinataStorage";
-import { getTracks, saveTracks } from "@/lib/localStorage";
-import { useData } from "@/lib/DataProvider";
+import { storeFile } from "@/services/fileStorage";
+import { uploadAudioToPinata, uploadImageToPinata, saveTrackToPinata } from "@/services/pinata";
+import { PINATA_GATEWAY } from "@/services/pinata";
+import { getTracks, saveTracks } from "@/services/localStorage";
+import { useData } from "@/providers/DataProvider";
 import { TrackInput } from "@/lib/types";
 
-// Default images and tracks for fallbacks
-const DEFAULT_IMAGES = [
-  "/images/ncs1.jpg",
-  "/images/ncs2.jpg",
-  "/images/ncs3.jpg"
-];
-
-const DEFAULT_TRACKS = mockTracks.slice(0, 3);
-
-// Get a random default image
-const getRandomDefaultImage = () => {
-  return DEFAULT_IMAGES[Math.floor(Math.random() * DEFAULT_IMAGES.length)];
-};
-
-// Get a random default track
-const getRandomDefaultTrack = () => {
-  return DEFAULT_TRACKS[Math.floor(Math.random() * DEFAULT_TRACKS.length)];
-};
+const DEFAULT_COVER = "/images/ncs1.jpg";
 
 export default function CreatePage() {
   const navigate = useNavigate();
@@ -162,58 +145,72 @@ export default function CreatePage() {
       toast.error("Track title is required");
       return;
     }
-    
+
+    if (!audioFile) {
+      toast.error("Please select an audio file");
+      return;
+    }
+
     setIsSubmitting(true);
-    
+
     try {
-      // Get the current user by wallet address
       const user = getUserByWalletAddress(address || "");
       if (!user) {
-        toast.error("User not found");
+        toast.error("User profile not found. Please visit your profile page first.");
         return;
       }
 
-      let audioUrl: string = "";
-      let coverArtUrl: string = "";
-      let audioHash: string | null = null;
-      let coverArtHash: string | null = null;
+      let audioUrl = "";
+      let coverArtUrl = "";
 
-      // Upload audio and cover art to Pinata
-      if (FEATURES.ENABLE_PINATA && audioFile) {
+      // ── Audio ──────────────────────────────────────────────────────────────
+      if (FEATURES.ENABLE_PINATA) {
         try {
-          audioHash = await uploadAudioToPinata(audioFile);
-          audioUrl = `${PINATA_GATEWAY}${audioHash}`;
-        } catch (error) {
-          toast.error("Failed to upload audio to Pinata. Using default audio.");
-          const defaultTrack = getRandomDefaultTrack();
-          audioUrl = defaultTrack.audioUrl;
+          const hash = await uploadAudioToPinata(audioFile);
+          audioUrl = `${PINATA_GATEWAY}${hash}`;
+        } catch {
+          toast.error("Pinata audio upload failed – saving locally.");
+          const fileId = await storeFile(audioFile);
+          audioUrl = `file://${fileId}`;
         }
-      }
-      if (FEATURES.ENABLE_PINATA && coverArtFile) {
+      } else if (FEATURES.ENABLE_IPFS && isIPFSInitialized) {
         try {
-          coverArtHash = await uploadImageToPinata(coverArtFile);
-          coverArtUrl = `${PINATA_GATEWAY}${coverArtHash}`;
-        } catch (error) {
-          toast.error("Failed to upload cover art to Pinata. Using default cover art.");
-          const defaultTrack = getRandomDefaultTrack();
-          coverArtUrl = defaultTrack.coverArt;
+          const cid = await uploadAudioToIPFS(audioFile);
+          audioUrl = `ipfs://${cid}`;
+        } catch {
+          toast.error("IPFS audio upload failed – saving locally.");
+          const fileId = await storeFile(audioFile);
+          audioUrl = `file://${fileId}`;
         }
-      }
-      if (!audioUrl) {
-        const defaultTrack = getRandomDefaultTrack();
-        audioUrl = defaultTrack.audioUrl;
-      }
-      if (!coverArtUrl) {
-        const defaultTrack = getRandomDefaultTrack();
-        coverArtUrl = defaultTrack.coverArt;
+      } else {
+        const fileId = await storeFile(audioFile);
+        audioUrl = `file://${fileId}`;
       }
 
-      // Create the track object
+      // ── Cover art ──────────────────────────────────────────────────────────
+      if (coverArtFile) {
+        if (FEATURES.ENABLE_PINATA) {
+          try {
+            const hash = await uploadImageToPinata(coverArtFile);
+            coverArtUrl = `${PINATA_GATEWAY}${hash}`;
+          } catch {
+            toast.error("Pinata cover art upload failed – saving locally.");
+            const fileId = await storeFile(coverArtFile);
+            coverArtUrl = `file://${fileId}`;
+          }
+        } else {
+          const fileId = await storeFile(coverArtFile);
+          coverArtUrl = `file://${fileId}`;
+        }
+      } else {
+        coverArtUrl = DEFAULT_COVER;
+      }
+
       const trackInput = {
         title: trackForm.title,
         artist: user,
-        coverArt: coverArtUrl || getRandomDefaultImage(),
-        audioUrl: audioUrl,
+        coverArt: coverArtUrl || DEFAULT_COVER,
+        audioUrl,
         likes: 0,
         comments: 0,
         plays: 0,
@@ -304,10 +301,10 @@ export default function CreatePage() {
         }
       } catch (error) {
         console.error('Error uploading media:', error);
-        mediaUrl = getRandomDefaultImage();
+        toast.error('Media upload failed – post will be created without the image.');
+        mediaUrl = undefined;
       }
 
-      // Add the post using mockData function
       await addPost({
         userId: user.id,
         content: postForm.content,

@@ -8,12 +8,12 @@ export const PINATA_CONFIG = {
   API_KEY: import.meta.env.VITE_PINATA_API_KEY || '',
   API_SECRET: import.meta.env.VITE_PINATA_API_SECRET || '',
   JWT: import.meta.env.VITE_PINATA_JWT || '',
-  ENABLED: import.meta.env.VITE_ENABLE_PINATA === 'true' || false,
+  ENABLED: import.meta.env.VITE_ENABLE_PINATA === 'true',
+  GATEWAY: import.meta.env.VITE_PINATA_GATEWAY || 'https://gateway.pinata.cloud/ipfs/',
 };
 
 // Local Storage Configuration
 export const STORAGE_CONFIG = {
-  PREFIX: 'sai_music_',
   VERSION: '1.0.0',
 };
 

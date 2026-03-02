@@ -1,13 +1,13 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
-import { WalletProvider } from "@/lib/walletUtils";
-import { DataProvider } from "@/lib/DataProvider";
-import { StorageProvider } from "@/lib/StorageProvider";
+import { WalletProvider } from "@/providers/walletUtils";
+import { DataProvider } from "@/providers/DataProvider";
+import { StorageProvider } from "@/providers/StorageProvider";
 import { Layout } from "@/components/Layout";
 
 // Pages
-import Index from "@/pages/Index";
+import Index from "@/pages/Home";
 import Explore from "@/pages/Explore";
 import ViralSounds from "@/pages/ViralSounds";
 import Create from "@/pages/Create";

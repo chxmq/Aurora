@@ -25,9 +25,9 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { mockTracks } from "@/lib/mockData";
+import { getTracks } from "@/services/localStorage";
 import { toast } from "sonner";
-import { getFileUrl } from "@/lib/fileStorage";
+import { getFileUrl } from "@/services/fileStorage";
 import { getGatewayUrl } from "@/lib/utils";
 import AudioVisualizer from "./AudioVisualizer";
 import AudioEqualizer from "./AudioEqualizer";
@@ -64,7 +64,8 @@ let analyserNode: AnalyserNode | null = null;
 const initAudioContext = async () => {
   if (!audioContext) {
     try {
-      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      audioContext = new (window.AudioContext || (window as unknown as any).webkitAudioContext)();
       audioSource = audioContext.createMediaElementSource(globalAudio);
       gainNode = audioContext.createGain();
       analyserNode = audioContext.createAnalyser();
@@ -73,7 +74,6 @@ const initAudioContext = async () => {
       audioSource.connect(analyserNode);
       analyserNode.connect(gainNode);
       gainNode.connect(audioContext.destination);
-      console.log('Audio context initialized');
     } catch (error) {
       console.error('Failed to initialize audio context:', error);
     }
@@ -82,7 +82,6 @@ const initAudioContext = async () => {
   if (audioContext && audioContext.state === 'suspended') {
     try {
       await audioContext.resume();
-      console.log('Audio context resumed');
     } catch (error) {
       console.error('Failed to resume audio context:', error);
     }
@@ -177,15 +176,11 @@ export const audioStore = {
       this.analyserNode = analyserNode;
       
       if (this.audioContext && this.audioContext.state === 'suspended') {
-        console.log('Resuming audio context...');
         await this.audioContext.resume();
       }
       
       this.audioElement.volume = this.isMuted ? 0 : this.volume;
       this.audioElement.loop = this.isLooping;
-      
-      console.log('Audio context state:', this.audioContext?.state);
-      console.log('Audio element ready state:', this.audioElement.readyState);
       
       return true;
     } catch (error) {
@@ -201,14 +196,11 @@ export const audioStore = {
         return;
       }
 
-      const track = mockTracks.find(t => t.id === trackId);
+      const track = getTracks().find(t => t.id === trackId);
       if (!track) {
-        console.error('Track not found:', trackId);
         this.cleanup();
         return;
       }
-
-      console.log('Setting current track:', track.title, 'URL:', track.audioUrl);
 
       const isNewTrack = this.currentTrackId !== trackId;
       this.currentTrackId = trackId;
@@ -226,29 +218,24 @@ export const audioStore = {
             throw new Error('Audio file not found in storage');
           }
           audioUrl = storedUrl;
-        } else if (audioUrl.startsWith('/')) {
-          audioUrl = audioUrl;
-          console.log('Using direct path:', audioUrl);
+        } else         if (audioUrl.startsWith('/')) {
+          // served from public/
         } else if (audioUrl.startsWith('ipfs://')) {
           audioUrl = getGatewayUrl(audioUrl);
         } else if (!audioUrl.startsWith('http')) {
           audioUrl = `/${audioUrl}`;
         }
-
-        console.log('Final audio URL:', audioUrl);
         this.audioElement.src = audioUrl;
         
         try {
           await new Promise((resolve, reject) => {
             const loadHandler = () => {
               this.audioElement.removeEventListener('error', errorHandler);
-              console.log('Audio loaded successfully');
               resolve(true);
             };
-            
+
             const errorHandler = (e: Event) => {
               this.audioElement.removeEventListener('loadeddata', loadHandler);
-              console.error('Audio load error:', e);
               reject(e);
             };
 
@@ -258,9 +245,8 @@ export const audioStore = {
             
             this.audioElement.load();
           });
-        } catch (error) {
-          console.error('Error loading audio:', error);
-          console.log('Attempting to play despite load error...');
+        } catch {
+          // attempt to play anyway — some browsers resolve despite load errors
         }
       }
 
@@ -280,14 +266,11 @@ export const audioStore = {
         console.error('No current track to play');
         return;
       }
-      
-      console.log('Attempting to play audio...');
       await this.initializeAudio();
       
       const playPromise = this.audioElement.play();
       if (playPromise !== undefined) {
         await playPromise;
-        console.log('Audio playing successfully');
       }
       
       this.isPlaying = true;
@@ -390,48 +373,45 @@ export const audioStore = {
 
   skipToNext() {
     if (!this.currentTrackId) return;
-    
-    const currentIndex = mockTracks.findIndex(t => t.id === this.currentTrackId);
-    if (currentIndex === -1) return;
-    
-    let nextIndex;
+    const tracks = getTracks();
+    const currentIndex = tracks.findIndex(t => t.id === this.currentTrackId);
+    if (currentIndex === -1 || tracks.length === 0) return;
+
+    let nextIndex: number;
     if (this.isShuffling) {
-      const availableIndices = Array.from(
-        { length: mockTracks.length },
-        (_, i) => i
-      ).filter(i => i !== currentIndex);
-      nextIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+      const others = tracks.map((_, i) => i).filter(i => i !== currentIndex);
+      nextIndex = others.length > 0
+        ? others[Math.floor(Math.random() * others.length)]
+        : currentIndex;
     } else {
-      nextIndex = (currentIndex + 1) % mockTracks.length;
+      nextIndex = (currentIndex + 1) % tracks.length;
     }
-    
-    this.setCurrentTrack(mockTracks[nextIndex].id, true);
+
+    this.setCurrentTrack(tracks[nextIndex].id, true);
   },
 
   skipToPrevious() {
     if (!this.currentTrackId) return;
-    
-    const currentIndex = mockTracks.findIndex(t => t.id === this.currentTrackId);
-    if (currentIndex === -1) return;
-    
+    const tracks = getTracks();
+    const currentIndex = tracks.findIndex(t => t.id === this.currentTrackId);
+    if (currentIndex === -1 || tracks.length === 0) return;
+
     if (this.audioElement.currentTime > 3) {
       this.audioElement.currentTime = 0;
       return;
     }
-    
-    let prevIndex;
+
+    let prevIndex: number;
     if (this.isShuffling) {
-      const availableIndices = Array.from(
-        { length: mockTracks.length },
-        (_, i) => i
-      ).filter(i => i !== currentIndex);
-      prevIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+      const others = tracks.map((_, i) => i).filter(i => i !== currentIndex);
+      prevIndex = others.length > 0
+        ? others[Math.floor(Math.random() * others.length)]
+        : currentIndex;
     } else {
-      prevIndex = currentIndex - 1;
-      if (prevIndex < 0) prevIndex = mockTracks.length - 1;
+      prevIndex = currentIndex - 1 < 0 ? tracks.length - 1 : currentIndex - 1;
     }
-    
-    this.setCurrentTrack(mockTracks[prevIndex].id, true);
+
+    this.setCurrentTrack(tracks[prevIndex].id, true);
   },
 
   updateProgress() {
@@ -472,17 +452,14 @@ globalAudio.addEventListener('error', (e) => {
 
 // Export utility functions
 export function playTrack(trackId: string) {
-  console.log('playTrack called with:', trackId);
   return audioStore.setCurrentTrack(trackId, true);
 }
 
 export function pauseTrack() {
-  console.log('pauseTrack called');
   audioStore.pause();
 }
 
 export function togglePlayPause() {
-  console.log('togglePlayPause called');
   return audioStore.togglePlay();
 }
 
@@ -548,10 +525,8 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
   useEffect(() => {
     const updateStates = (trackId: string | null, playing: boolean, state: AudioState) => {
       if (trackId) {
-        const track = mockTracks.find(t => t.id === trackId);
-        if (track) {
-          setCurrentTrack(track);
-        }
+        const track = getTracks().find(t => t.id === trackId);
+        setCurrentTrack(track ?? null);
       } else {
         setCurrentTrack(null);
       }

@@ -10,8 +10,8 @@ import { playTrack, pauseTrack, getCurrentTrackId, getIsPlaying } from "./MusicP
 import { audioStore } from "./MusicPlayer";
 import { toast } from "sonner";
 import CommentSection from "./CommentSection";
-import { useWallet } from "@/lib/walletUtils";
-import { deleteTrack } from "@/lib/mockData";
+import { useWallet } from "@/providers/walletUtils";
+import { deleteTrack } from "@/services/data";
 import {
   DropdownMenu,
   DropdownMenuContent,

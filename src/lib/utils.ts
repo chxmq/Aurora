@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { PINATA_CONFIG } from "./config"
  
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -30,7 +31,7 @@ export function generateId(): string {
  */
 export function getGatewayUrl(url: string): string {
   if (url && url.startsWith('ipfs://')) {
-    return url.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+    return url.replace('ipfs://', PINATA_CONFIG.GATEWAY);
   }
   return url;
 }

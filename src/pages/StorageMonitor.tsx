@@ -1,6 +1,6 @@
 
 import PinataStorageMonitor from "@/components/PinataStorageMonitor";
-import { useWallet } from "@/lib/walletUtils";
+import { useWallet } from "@/providers/walletUtils";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 

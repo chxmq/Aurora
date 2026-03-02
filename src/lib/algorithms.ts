@@ -189,7 +189,7 @@ function calculateProfileCompleteness(user: User): number {
     return completedFields / fields.length;
 }
 
-function calculateTrackScore(track: Track): number {
+export function calculateTrackScore(track: Track): number {
     const playsWeight = 0.4;
     const likesWeight = 0.4;
     const commentsWeight = 0.2;

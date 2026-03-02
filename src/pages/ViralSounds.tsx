@@ -1,83 +1,68 @@
 import { useState, useEffect } from "react";
-
+import { TrendingUp } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import MusicTrackCard from "@/components/MusicTrackCard";
-import { mockTracks, mockUsers } from "@/lib/mockData";
+import { getTracks } from "@/services/localStorage";
+import { calculateTrackScore } from "@/lib/algorithms";
 import { Track } from "@/lib/types";
-
-// Calculate track score based on multiple factors
-const calculateTrackScore = (track: Track) => {
-  const now = new Date();
-  const trackDate = new Date(track.createdAt);
-  const daysSinceCreation = (now.getTime() - trackDate.getTime()) / (1000 * 60 * 60 * 24);
-  
-  // Normalize values to a 0-1 scale
-  const likesScore = track.likes / 5000; // Increased max likes threshold
-  const playsScore = track.plays / 100000; // Increased max plays threshold
-  const followersScore = track.artist.followers / 100000;
-  const commentsScore = track.comments / 200;
-  const recencyScore = Math.max(0, 1 - daysSinceCreation / 30);
-  
-  // Weight the different factors
-  const weights = {
-    likes: 0.3,
-    plays: 0.3,
-    followers: 0.2,
-    comments: 0.1,
-    recency: 0.1
-  };
-  
-  // Calculate final score
-  return (
-    likesScore * weights.likes +
-    playsScore * weights.plays +
-    followersScore * weights.followers +
-    commentsScore * weights.comments +
-    recencyScore * weights.recency
-  );
-};
 
 export default function ViralSoundsPage() {
   const [tracks, setTracks] = useState<Track[]>([]);
 
-  useEffect(() => {
-    // Get all tracks with their scores
-    const tracksWithScores = mockTracks.map(track => ({
-      track,
-      score: calculateTrackScore(track)
-    }));
-
-    // Sort by score and get top tracks from different creators
-    const sortedTracks = tracksWithScores
+  const buildList = () => {
+    const all = getTracks();
+    const scored = all
+      .map((track) => ({ track, score: calculateTrackScore(track) }))
       .sort((a, b) => b.score - a.score)
-      .reduce((acc: Track[], curr) => {
-        // Only add if we don't already have too many tracks from this creator
-        const creatorTracks = acc.filter(track => track.artist.id === curr.track.artist.id);
-        if (creatorTracks.length < 2) { // Allow up to 2 tracks per creator
-          acc.push(curr.track);
-        }
+      .reduce((acc: Track[], { track }) => {
+        const creatorCount = acc.filter((t) => t.artist.id === track.artist.id).length;
+        if (creatorCount < 2) acc.push(track);
         return acc;
       }, [])
-      .slice(0, 12); // Show top 12 tracks
+      .slice(0, 12);
+    setTracks(scored);
+  };
 
-    setTracks(sortedTracks);
+  useEffect(() => {
+    buildList();
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key?.startsWith("sai_music_tracks")) buildList();
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
   }, []);
 
   return (
-    
-      <div className="max-w-4xl mx-auto py-8">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-4">Viral Sounds</h1>
-          <p className="text-lg text-muted-foreground">
-            Discover the hottest tracks from the most talented artists on musicnft.
-          </p>
-        </div>
+    <div className="max-w-4xl mx-auto py-8">
+      <div className="text-center mb-8">
+        <h1 className="text-4xl font-bold mb-4">Viral Sounds</h1>
+        <p className="text-lg text-muted-foreground">
+          The hottest tracks on Aurora ranked by plays, likes, and recency.
+        </p>
+      </div>
 
+      {tracks.length > 0 ? (
         <div className="grid grid-cols-1 gap-6">
           {tracks.map((track) => (
             <MusicTrackCard key={track.id} track={track} />
           ))}
         </div>
-      </div>
-    
+      ) : (
+        <div className="flex flex-col items-center justify-center py-24 rounded-3xl border-2 border-dashed border-border/50 bg-muted/20">
+          <TrendingUp className="h-16 w-16 text-muted-foreground/40 mb-4" />
+          <h3 className="text-xl font-semibold text-muted-foreground mb-2">Nothing trending yet</h3>
+          <p className="text-muted-foreground mb-6 text-center max-w-xs">
+            Upload tracks and get plays — the chart fills up as the community grows.
+          </p>
+          <Button asChild>
+            <Link to="/create">Upload a Track</Link>
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }

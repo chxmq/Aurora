@@ -1,12 +1,11 @@
-
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { AvatarWithVerify } from "@/components/ui/avatar-with-verify";
-import { Comment, User } from "@/lib/types";
-import { useWallet } from "@/lib/walletUtils";
+import { Comment } from "@/lib/types";
+import { useWallet } from "@/providers/walletUtils";
+import { useData } from "@/providers/DataProvider";
 import { toast } from "sonner";
-import { mockUsers } from "@/lib/mockData";
 
 interface CommentSectionProps {
   comments: Comment[];
@@ -14,50 +13,39 @@ interface CommentSectionProps {
 }
 
 export default function CommentSection({ comments, onAddComment }: CommentSectionProps) {
-  const [commentText, setCommentText] = useState('');
-  const { isConnected, address } = useWallet();
-  
+  const [commentText, setCommentText] = useState("");
+  const { isConnected } = useWallet();
+  const { currentUser } = useData();
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!commentText.trim()) {
       toast.error("Please enter a comment");
       return;
     }
-    
     if (!isConnected) {
       toast.error("Please connect your wallet to comment");
       return;
     }
-    
     onAddComment(commentText);
-    setCommentText('');
-    toast.success("Comment added successfully");
+    setCommentText("");
+    toast.success("Comment added");
   };
-  
-  // Get current user to show their avatar in the comment form
-  const currentUser: User | undefined = isConnected ? 
-    mockUsers.find(u => u.walletAddress?.toLowerCase() === address?.toLowerCase()) || {
-      id: "current",
-      username: "@you",
-      displayName: "You",
-      avatar: "/placeholder.svg",
-      isVerified: false,
-      followers: 0,
-      following: 0,
-      posts: 0
-    } : undefined;
-  
+
+  const avatar = currentUser?.avatar ?? "/placeholder.svg";
+  const displayName = currentUser?.displayName ?? "You";
+  const isVerified = currentUser?.isVerified ?? false;
+
   return (
     <div className="space-y-6 mt-4">
       <h3 className="text-lg font-semibold">Comments ({comments.length})</h3>
-      
-      {isConnected && (
+
+      {isConnected ? (
         <form onSubmit={handleSubmit} className="flex gap-3">
           <AvatarWithVerify
-            src={currentUser?.avatar || "/placeholder.svg"}
-            fallback={currentUser?.displayName || "You"}
-            isVerified={currentUser?.isVerified || false}
+            src={avatar}
+            fallback={displayName}
+            isVerified={isVerified}
             size="sm"
           />
           <div className="flex-1 space-y-2">
@@ -72,30 +60,27 @@ export default function CommentSection({ comments, onAddComment }: CommentSectio
             </div>
           </div>
         </form>
-      )}
-      
-      {!isConnected && (
+      ) : (
         <div className="text-center p-4 bg-secondary/50 rounded-md">
-          <p className="text-muted-foreground mb-2">Connect your wallet to join the conversation</p>
-          <Button variant="outline" onClick={() => {/* wallet connection handled elsewhere */}}>
-            Connect Wallet
-          </Button>
+          <p className="text-muted-foreground mb-2">
+            Connect your wallet to join the conversation
+          </p>
         </div>
       )}
-      
+
       <div className="space-y-4">
         {comments.length > 0 ? (
           comments.map((comment) => (
             <div key={comment.id} className="flex gap-3">
               <AvatarWithVerify
-                src={comment.user?.avatar || "/placeholder.svg"}
-                fallback={comment.user?.displayName || "User"}
-                isVerified={comment.user?.isVerified || false}
+                src={comment.user?.avatar ?? "/placeholder.svg"}
+                fallback={comment.user?.displayName ?? "User"}
+                isVerified={comment.user?.isVerified ?? false}
                 size="sm"
               />
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">{comment.user?.displayName}</span>
+                  <span className="font-medium">{comment.user?.displayName ?? "Anonymous"}</span>
                   <span className="text-xs text-muted-foreground">
                     {new Date(comment.createdAt).toLocaleDateString()}
                   </span>

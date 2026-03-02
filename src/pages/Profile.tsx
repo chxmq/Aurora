@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { mockUsers, mockTracks, mockPosts, addPost, getUserByWalletAddress, getPopulatedPosts, updateUser, initializeIfEmpty, getTracks } from "@/lib/mockData";
+import { getUserByWalletAddress, updateUser } from "@/services/data";
+import { getTracks, getPosts, getUsers, saveUsers, saveIPFSMapping } from "@/services/localStorage";
 import { User, Track, Post } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AvatarWithVerify } from "@/components/ui/avatar-with-verify";
@@ -9,12 +10,11 @@ import MusicTrackCard from "@/components/MusicTrackCard";
 import PostCard from "@/components/PostCard";
 import TipArtistModal from "@/components/TipArtistModal";
 import EditProfileModal from "@/components/EditProfileModal";
-import { useWallet } from "@/lib/walletUtils";
+import { useWallet } from "@/providers/walletUtils";
 import { toast } from "sonner";
-import { getUsers, saveUsers, saveIPFSMapping } from "@/lib/localStorage";
-import { saveUserToPinata } from "@/lib/pinataStorage";
+import { saveUserToPinata } from "@/services/pinata";
 import { FEATURES } from "@/lib/config";
-import { useStorage } from "@/lib/StorageProvider";
+import { useStorage } from "@/providers/StorageProvider";
 
 export default function ProfilePage() {
   const { id } = useParams();
@@ -35,10 +35,6 @@ export default function ProfilePage() {
     const fetchUserData = async () => {
       setIsLoading(true);
       try {
-        // Ensure mock data is initialized
-        initializeIfEmpty();
-        
-        // Get fresh users data from local storage
         const users = getUsers();
         
         let userData: User | null = null;
@@ -87,13 +83,11 @@ export default function ProfilePage() {
         const tracks = userData ? getTracks().filter(track => track.artist.id === userData.id) : [];
         setUserTracks(tracks);
         
-        // Get user's posts
-        const posts = userData ? mockPosts.filter(post => post.userId === userData.id) : [];
-        const populatedPosts = posts.map(post => ({
-          ...post,
-          user: userData!
-        }));
-        setUserPosts(populatedPosts);
+        // Get user's posts from localStorage
+        const posts = userData
+          ? getPosts().filter((p) => p.userId === userData.id)
+          : [];
+        setUserPosts(posts.map((p) => ({ ...p, user: userData! })));
       } catch (error) {
         console.error("Error fetching user data:", error);
         toast.error("Failed to load user data");
@@ -206,9 +200,11 @@ export default function ProfilePage() {
     }
   };
   
-  const handlePostDelete = (postId: string) => {
-    // Implement the logic to delete a post
-    console.log(`Deleting post with id: ${postId}`);
+  const handlePostDelete = () => {
+    if (user) {
+      const posts = getPosts().filter((p) => p.userId === user.id);
+      setUserPosts(posts.map((p) => ({ ...p, user: user! })));
+    }
   };
   
   if (isLoading || !user) {
@@ -343,10 +339,10 @@ export default function ProfilePage() {
             {userPosts.length > 0 ? (
               <div className="grid grid-cols-1 gap-6">
                 {userPosts.map((post) => (
-                  <PostCard 
-                    key={post.id} 
-                    post={{...post, user: user!}} 
-                    onDelete={() => handlePostDelete(post.id)}
+                  <PostCard
+                    key={post.id}
+                    post={{ ...post, user: user! }}
+                    onDelete={handlePostDelete}
                   />
                 ))}
               </div>
