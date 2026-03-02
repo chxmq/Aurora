@@ -1,16 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getUserByWalletAddress, updateUser } from "@/services/data";
-import { getTracks, getPosts, getUsers, saveUsers, saveIPFSMapping } from "@/services/localStorage";
+import { getTracks, getPosts, getUsers, saveUsers, saveIPFSMapping, followUser, unfollowUser, getIsFollowing, saveNotification } from "@/services/localStorage";
 import { User, Track, Post } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AvatarWithVerify } from "@/components/ui/avatar-with-verify";
 import { Button } from "@/components/ui/button";
-import MusicTrackCard from "@/components/MusicTrackCard";
-import PostCard from "@/components/PostCard";
-import TipArtistModal from "@/components/TipArtistModal";
-import EditProfileModal from "@/components/EditProfileModal";
+import MusicTrackCard from "@/components/music/MusicTrackCard";
+import PostCard from "@/components/post/PostCard";
+import TipArtistModal from "@/components/user/TipArtistModal";
+import EditProfileModal from "@/components/user/EditProfileModal";
 import { useWallet } from "@/providers/walletUtils";
+import { useData } from "@/providers/DataProvider";
 import { toast } from "sonner";
 import { saveUserToPinata } from "@/services/pinata";
 import { FEATURES } from "@/lib/config";
@@ -20,12 +21,11 @@ export default function ProfilePage() {
   const { id } = useParams();
   const { isConnected, address, connectWallet } = useWallet();
   const { isPinataInitialized } = useStorage();
+  const { currentUser } = useData();
   const [user, setUser] = useState<User | null>(null);
   const [userTracks, setUserTracks] = useState<Track[]>([]);
   const [userPosts, setUserPosts] = useState<(Post & { user: User })[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string>("tracks");
-  const [isEditMode, setIsEditMode] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const navigate = useNavigate();
@@ -47,24 +47,10 @@ export default function ProfilePage() {
           // Current user by wallet address
           userData = users.find(u => u.walletAddress?.toLowerCase() === address.toLowerCase());
           
-          // If no user found but wallet is connected, create a new user profile
+          // New wallet with no profile yet — OnboardingGate handles creation
           if (!userData && isConnected) {
-            userData = {
-              id: (users.length + 1).toString(),
-              username: `user_${address.substring(2, 8)}`,
-              displayName: `User ${address.substring(2, 8)}`,
-              avatar: "/placeholder.svg",
-              isVerified: false,
-              followers: 0,
-              following: 0,
-              posts: 0,
-              walletAddress: address
-            };
-            
-            // Add new user to storage
-            const updatedUsers = [...users, userData];
-            saveUsers(updatedUsers);
-            toast.success("Created new profile for your wallet");
+            setIsLoading(false);
+            return;
           }
         }
         
@@ -78,7 +64,12 @@ export default function ProfilePage() {
         }
         
         setUser(userData);
-        
+
+        // Initialise follow state from persisted data
+        if (currentUser && userData.id !== currentUser.id) {
+          setIsFollowing(getIsFollowing(currentUser.id, userData.id));
+        }
+
         // Get user's tracks
         const tracks = userData ? getTracks().filter(track => track.artist.id === userData.id) : [];
         setUserTracks(tracks);
@@ -97,7 +88,7 @@ export default function ProfilePage() {
     };
     
     fetchUserData();
-  }, [id, address, isConnected, navigate]);
+  }, [id, address, isConnected, navigate, currentUser]);
   
   const handleProfileUpdate = async (updatedUserData: Partial<User>) => {
     if (user) {
@@ -166,23 +157,34 @@ export default function ProfilePage() {
   };
   
   const handleFollow = () => {
-    if (!isConnected) {
+    if (!isConnected || !currentUser) {
       toast.error("Connect wallet to follow users");
       return;
     }
-    
-    if (user) {
-      if (isFollowing) {
-        user.followers -= 1;
-        setIsFollowing(false);
-        toast.success(`You unfollowed ${user.displayName}`);
-      } else {
-        user.followers += 1;
-        setIsFollowing(true);
-        toast.success(`You are now following ${user.displayName}`);
-      }
-      setUser({ ...user });
+    if (!user) return;
+
+    if (isFollowing) {
+      unfollowUser(currentUser.id, user.id);
+      setIsFollowing(false);
+      toast.success(`You unfollowed ${user.displayName}`);
+    } else {
+      followUser(currentUser.id, user.id);
+      setIsFollowing(true);
+      toast.success(`You are now following ${user.displayName}`);
+      saveNotification({
+        id: `follow-${currentUser.id}-${user.id}-${Date.now()}`,
+        type: "follow",
+        fromUserId: currentUser.id,
+        fromUser: currentUser,
+        toUserId: user.id,
+        content: `${currentUser.displayName} started following you.`,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      });
     }
+    // Refresh user data from storage to reflect updated counts
+    const fresh = getUsers().find(u => u.id === user.id);
+    if (fresh) setUser(fresh);
   };
   
   const handleWalletConnect = async () => {
@@ -229,8 +231,7 @@ export default function ProfilePage() {
             src={user.avatar}
             fallback={user.displayName}
             isVerified={user.isVerified}
-            size="lg"
-            className="h-20 w-20 md:h-24 md:w-24 shadow-xl"
+            size="xl"
           />
           
           <div className="mt-4 md:mt-0 flex-1">

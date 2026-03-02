@@ -7,7 +7,7 @@ interface AvatarWithVerifyProps {
   src: string;
   fallback: string;
   isVerified?: boolean;
-  size?: "xs" | "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg" | "xl" | "2xl";
   className?: string;
 }
 
@@ -19,24 +19,28 @@ export function AvatarWithVerify({
   className,
 }: AvatarWithVerifyProps) {
   const sizeClasses = {
-    xs: "h-6 w-6",
-    sm: "h-8 w-8",
-    md: "h-10 w-10",
-    lg: "h-14 w-14",
+    xs:  "h-6 w-6",
+    sm:  "h-8 w-8",
+    md:  "h-10 w-10",
+    lg:  "h-14 w-14",
+    xl:  "h-20 w-20",
+    "2xl": "h-24 w-24",
   };
 
   const badgeSizes = {
-    xs: "h-3 w-3 -bottom-0.5 -right-0.5",
-    sm: "h-4 w-4 -bottom-1 -right-1",
-    md: "h-5 w-5 -bottom-1 -right-1",
-    lg: "h-6 w-6 -bottom-1 -right-1",
+    xs:  "h-3 w-3 -bottom-0.5 -right-0.5",
+    sm:  "h-4 w-4 -bottom-1 -right-1",
+    md:  "h-5 w-5 -bottom-1 -right-1",
+    lg:  "h-6 w-6 -bottom-1 -right-1",
+    xl:  "h-7 w-7 -bottom-1 -right-1",
+    "2xl": "h-8 w-8 -bottom-1 -right-1",
   };
 
   const avatarSrc = getGatewayUrl(src);
 
   return (
-    <div className={cn("relative", className)}>
-      <Avatar className={cn(sizeClasses[size], "ring-0 border-0 bg-transparent")}>
+    <div className={cn("relative inline-flex", sizeClasses[size], className)}>
+      <Avatar className={cn("h-full w-full", "ring-0 border-0 bg-transparent")}>
         <AvatarImage 
           src={avatarSrc} 
           alt={fallback}

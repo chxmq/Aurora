@@ -1,68 +1,84 @@
 # Aurora
 
-Aurora is a modern, decentralized music sharing and streaming platform. It allows users to upload, discover, and listen to music tracks, interact with artists, and participate in a vibrant music community. The app leverages decentralized storage solutions for music files and provides a social experience with features like comments, tips, and following artists.
+Aurora is a decentralized music sharing and streaming platform built on Web3. Users can upload, discover, and listen to music, interact with artists, tip creators, and build a music community — all backed by decentralized storage via IPFS and Pinata.
 
 ## Features
-- 🎵 Stream and discover music tracks
-- 🚀 Upload your own music
-- 💬 Comment on tracks and posts
-- 💸 Tip your favorite artists
-- 🔍 Search for tracks, artists, and genres
-- 🏆 Explore trending and viral sounds
-- 🗂️ Decentralized storage integration (IPFS, Pinata)
-- 👤 User profiles and social features
-- 📱 Responsive design for mobile and desktop
+
+- Stream and discover music tracks
+- Upload your own music to IPFS
+- Comment on tracks and posts
+- Tip your favorite artists
+- Search for tracks, artists, and genres
+- Explore trending and viral sounds
+- Playlists and liked songs
+- User profiles with onboarding flow
+- Wallet-based authentication via MetaMask
+- Responsive design for mobile and desktop
 
 ## Getting Started
 
 ### Prerequisites
-- [Node.js](https://nodejs.org/) (v18 or higher recommended)
-- [Bun](https://bun.sh/) (if using Bun for development)
+
+- [Node.js](https://nodejs.org/) v18 or higher
+- A MetaMask browser extension
+- Pinata API keys (see `.env.example`)
 
 ### Installation
-1. **Clone the repository:**
+
+1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/dmusic-app.git
-   cd dmusic-app
+   git clone https://github.com/chxmq/aurora.git
+   cd aurora
    ```
-2. **Install dependencies:**
+
+2. Install dependencies:
    ```bash
    npm install
-   # or
-   bun install
    ```
-3. **Start the development server:**
+
+3. Set up environment variables:
+   ```bash
+   cp .env.example .env
+   ```
+   Fill in your Pinata API keys in `.env`.
+
+4. Start the development server:
    ```bash
    npm run dev
-   # or
-   bun run dev
    ```
-4. **Open your browser:**
-   Visit [http://localhost:5173](http://localhost:5173) to view the app.
+
+5. Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ## Project Structure
+
 ```
 src/
-  components/      # Reusable UI and feature components
-  hooks/           # Custom React hooks
-  lib/             # Utility libraries and storage providers
-  music/           # Sample music files
-  pages/           # Main app pages/routes
-  App.tsx          # Main app component
-  main.tsx         # App entry point
+  components/
+    layout/       # Layout, Header, Sidebar, MusicPlayer
+    music/        # MusicTrackCard, AudioEqualizer, AudioVisualizer, etc.
+    post/         # PostCard, CreatePostForm, CommentSection
+    playlist/     # CreatePlaylistModal, AddToPlaylistModal
+    user/         # OnboardingGate, OnboardingModal, EditProfileModal, etc.
+    search/       # SearchResults
+    storage/      # PinataStorageMonitor
+    ui/           # shadcn/ui primitives
+  hooks/          # Custom React hooks
+  lib/            # Types and utilities
+  pages/          # App routes and pages
+  providers/      # Context providers (Data, Wallet, Storage)
+  services/       # IPFS, localStorage, fileStorage
+  App.tsx
+  main.tsx
 ```
 
-## Usage
-- **Upload Music:** Go to the Create page and upload your music files.
-- **Explore:** Browse trending tracks and discover new artists on the Explore and Viral Sounds pages.
-- **Interact:** Comment on tracks, tip artists, and follow users to build your music network.
-- **Profile:** Edit your profile and view your uploads and activity.
+## Environment Variables
 
+See `.env.example` for all required variables.
 
-## 🌟 Credits
+## Credits
 
-- Built with ❤️ by [@chxmq](https://github.com/chxmq) and [@tallamSai](https://github.com/tallamSai)
-
+Built with ❤️ by [@chxmq](https://github.com/chxmq) and [@tallamSai](https://github.com/tallamSai)
 
 ## License
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+Copyright (c) 2026 Aurora. All Rights Reserved. See the [LICENSE](LICENSE) file for details.

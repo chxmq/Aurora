@@ -9,18 +9,14 @@ import { useWallet } from "@/providers/walletUtils";
 import { toast } from "sonner";
 import { addPost, addTrack, getUserByWalletAddress } from "@/services/data";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { uploadAudioToIPFS } from "@/services/ipfs";
+import { uploadAudioToIPFS, uploadImageToIPFS } from "@/services/ipfs";
 import { useStorage } from "@/providers/StorageProvider";
 import { generateId } from "@/lib/utils";
-import { FEATURES } from "@/lib/config";
+import { ECONOMY_CONFIG, FEATURES } from "@/lib/config";
 import { storeFile } from "@/services/fileStorage";
 import { uploadAudioToPinata, uploadImageToPinata, saveTrackToPinata } from "@/services/pinata";
 import { PINATA_GATEWAY } from "@/services/pinata";
-import { getTracks, saveTracks } from "@/services/localStorage";
 import { useData } from "@/providers/DataProvider";
-import { TrackInput } from "@/lib/types";
-
-const DEFAULT_COVER = "/images/ncs1.jpg";
 
 export default function CreatePage() {
   const navigate = useNavigate();
@@ -39,7 +35,7 @@ export default function CreatePage() {
   const [trackForm, setTrackForm] = useState({
     title: "",
     description: "",
-    price: "0.01",
+    price: ECONOMY_CONFIG.DEFAULT_TRACK_PRICE_ETH,
     lyrics: ""
   });
   
@@ -72,6 +68,17 @@ export default function CreatePage() {
     setPostForm(prev => ({ ...prev, [name]: value }));
   };
 
+  const [audioDuration, setAudioDuration] = useState(0);
+
+  const detectDuration = (file: File): Promise<number> =>
+    new Promise(resolve => {
+      const audio = new Audio();
+      const url = URL.createObjectURL(file);
+      audio.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(Math.round(audio.duration)); };
+      audio.onerror = () => { URL.revokeObjectURL(url); resolve(0); };
+      audio.src = url;
+    });
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'audio' | 'coverArt' | 'postMedia') => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -85,6 +92,7 @@ export default function CreatePage() {
       }
       
       setAudioFile(file);
+      detectDuration(file).then(setAudioDuration);
       toast.success('Audio file selected successfully!');
     } else if (type === 'coverArt' || type === 'postMedia') {
       if (!file.type.startsWith('image/')) {
@@ -202,32 +210,21 @@ export default function CreatePage() {
           const fileId = await storeFile(coverArtFile);
           coverArtUrl = `file://${fileId}`;
         }
-      } else {
-        coverArtUrl = DEFAULT_COVER;
       }
 
       const trackInput = {
         title: trackForm.title,
         artist: user,
-        coverArt: coverArtUrl || DEFAULT_COVER,
+        coverArt: coverArtUrl || "/placeholder.svg",
         audioUrl,
         likes: 0,
         comments: 0,
         plays: 0,
         createdAt: new Date().toISOString(),
-        duration: 0
+        duration: audioDuration,
+        lyrics: trackForm.lyrics || undefined,
       };
-      const track = await addTrack(trackInput);
-      // After track is created, update it with lyrics if present
-      if (trackForm.lyrics && track) {
-        track.lyrics = trackForm.lyrics;
-        const tracks = getTracks();
-        const idx = tracks.findIndex(t => t.id === track.id);
-        if (idx !== -1) {
-          tracks[idx] = track;
-          saveTracks(tracks);
-        }
-      }
+      await addTrack(trackInput);
 
       // Refresh global data if available
       if (refreshData) refreshData();
@@ -236,7 +233,7 @@ export default function CreatePage() {
       setTrackForm({
         title: "",
         description: "",
-        price: "0.01",
+        price: ECONOMY_CONFIG.DEFAULT_TRACK_PRICE_ETH,
         lyrics: ""
       });
       setAudioFile(null);
@@ -292,8 +289,8 @@ export default function CreatePage() {
             const imageHash = await uploadImageToPinata(postMediaFile);
             mediaUrl = `ipfs://${imageHash}`;
           } else if (FEATURES.ENABLE_IPFS && isIPFSInitialized) {
-            const mediaCid = await uploadAudioToIPFS(postMediaFile);
-            mediaUrl = `ipfs://${mediaCid}`;
+            const imageCid = await uploadImageToIPFS(postMediaFile);
+            mediaUrl = `ipfs://${imageCid}`;
           } else {
             const mediaId = await storeFile(postMediaFile);
             mediaUrl = `file://${mediaId}`;
@@ -342,7 +339,7 @@ export default function CreatePage() {
       setTrackForm({
         title: "",
         description: "",
-        price: "0.01",
+        price: ECONOMY_CONFIG.DEFAULT_TRACK_PRICE_ETH,
         lyrics: ""
       });
       setAudioFile(null);
@@ -512,9 +509,9 @@ export default function CreatePage() {
                     id="price"
                     name="price"
                     type="number"
-                    step="0.01"
+                    step={ECONOMY_CONFIG.DEFAULT_TRACK_PRICE_ETH}
                     min="0"
-                    placeholder="0.01"
+                    placeholder={ECONOMY_CONFIG.DEFAULT_TRACK_PRICE_ETH}
                     value={trackForm.price}
                     onChange={handleTrackFormChange}
                   />

@@ -4,7 +4,7 @@ import { Toaster } from "sonner";
 import { WalletProvider } from "@/providers/walletUtils";
 import { DataProvider } from "@/providers/DataProvider";
 import { StorageProvider } from "@/providers/StorageProvider";
-import { Layout } from "@/components/Layout";
+import { Layout } from "@/components/layout/Layout";
 
 // Pages
 import Index from "@/pages/Home";
@@ -16,12 +16,18 @@ import Notifications from "@/pages/Notifications";
 import StorageMonitor from "@/pages/StorageMonitor";
 import NotFound from "@/pages/NotFound";
 import PostsPage from "@/pages/Posts";
+import Search from "@/pages/Search";
+import OnboardingGate from "@/components/user/OnboardingGate";
+import LikedSongs from "@/pages/LikedSongs";
+import Playlists from "@/pages/Playlists";
+import PlaylistDetail from "@/pages/PlaylistDetail";
 
 function App() {
   return (
     <StorageProvider>
       <WalletProvider>
         <DataProvider>
+          <OnboardingGate />
           <Router>
             <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-800">
               <Routes>
@@ -31,6 +37,11 @@ function App() {
                   <Route path="viral-sounds" element={<ViralSounds />} />
                   <Route path="create" element={<Create />} />
                   <Route path="profile" element={<Profile />} />
+                  <Route path="profile/:id" element={<Profile />} />
+                  <Route path="search" element={<Search />} />
+                  <Route path="liked-songs" element={<LikedSongs />} />
+                  <Route path="playlists" element={<Playlists />} />
+                  <Route path="playlist/:id" element={<PlaylistDetail />} />
                   <Route path="notifications" element={<Notifications />} />
                   <Route path="storage-monitor" element={<StorageMonitor />} />
                   <Route path="posts" element={<PostsPage />} />

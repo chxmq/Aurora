@@ -1,23 +1,24 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { AvatarWithVerify } from "@/components/ui/avatar-with-verify";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Users, Music } from "lucide-react";
-import MusicTrackCard from "@/components/MusicTrackCard";
+import MusicTrackCard from "@/components/music/MusicTrackCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getUsers, getTracks } from "@/services/localStorage";
+import { getUsers, getTracks, STORAGE_PREFIX, followUser, unfollowUser, getIsFollowing } from "@/services/localStorage";
 import { User, Track } from "@/lib/types";
+import { useData } from "@/providers/DataProvider";
+import { toast } from "sonner";
 
 export default function ExplorePage() {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [allTracks, setAllTracks] = useState<Track[]>([]);
-  const [activeTab, setActiveTab] = useState("featured");
+  const [activeTab, setActiveTab] = useState("trending");
+  const { currentUser } = useData();
 
   const refresh = useCallback(() => {
-    const users = getUsers();
-    const tracks = getTracks();
-    setAllUsers(users);
-    setAllTracks(tracks);
+    setAllUsers(getUsers());
+    setAllTracks(getTracks());
   }, []);
 
   useEffect(() => {
@@ -26,28 +27,97 @@ export default function ExplorePage() {
 
   useEffect(() => {
     const handler = (e: StorageEvent) => {
-      if (e.key?.startsWith("sai_music_")) refresh();
+      if (e.key?.startsWith(STORAGE_PREFIX)) refresh();
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
   }, [refresh]);
 
+  // Stable featured selection: sort by follower count instead of random
+  const featuredUsers = useMemo(
+    () => [...allUsers].sort((a, b) => b.followers - a.followers).slice(0, 8),
+    [allUsers]
+  );
   const verifiedArtists = allUsers.filter((u) => u.isVerified);
-  const featuredUsers = [...allUsers].sort(() => Math.random() - 0.5).slice(0, 8);
 
-  const risingStars = [...allTracks]
-    .sort((a, b) => {
-      const aAge = (Date.now() - new Date(a.createdAt).getTime()) / 86400000;
-      const bAge = (Date.now() - new Date(b.createdAt).getTime()) / 86400000;
-      return (b.likes + b.plays) / (bAge || 1) - (a.likes + a.plays) / (aAge || 1);
-    })
-    .slice(0, 8);
+  const risingStars = useMemo(() =>
+    [...allTracks]
+      .sort((a, b) => {
+        const aAge = Math.max(1, (Date.now() - new Date(a.createdAt).getTime()) / 86400000);
+        const bAge = Math.max(1, (Date.now() - new Date(b.createdAt).getTime()) / 86400000);
+        return (b.likes + b.plays) / bAge - (a.likes + a.plays) / aAge;
+      })
+      .slice(0, 8),
+  [allTracks]);
 
-  const popularTracks = [...allTracks].sort((a, b) => b.plays - a.plays).slice(0, 8);
-  const trendingTracks = [...allTracks].sort((a, b) => b.likes - a.likes).slice(0, 8);
-  const newTracks = [...allTracks]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 8);
+  const popularTracks = useMemo(() =>
+    [...allTracks].sort((a, b) => b.plays - a.plays).slice(0, 8),
+  [allTracks]);
+
+  const trendingTracks = useMemo(() =>
+    [...allTracks].sort((a, b) => b.likes - a.likes).slice(0, 8),
+  [allTracks]);
+
+  const newTracks = useMemo(() =>
+    [...allTracks]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 8),
+  [allTracks]);
+
+  const handleFollow = (targetUser: User) => {
+    if (!currentUser) {
+      toast.error("Connect your wallet to follow artists");
+      return;
+    }
+    if (currentUser.id === targetUser.id) return;
+
+    const already = getIsFollowing(currentUser.id, targetUser.id);
+    if (already) {
+      unfollowUser(currentUser.id, targetUser.id);
+      toast.success(`Unfollowed ${targetUser.displayName}`);
+    } else {
+      followUser(currentUser.id, targetUser.id);
+      toast.success(`Following ${targetUser.displayName}`);
+    }
+    refresh();
+  };
+
+  const ArtistCard = ({ user }: { user: User }) => {
+    const isFollowing = currentUser ? getIsFollowing(currentUser.id, user.id) : false;
+    const isSelf = currentUser?.id === user.id;
+    return (
+      <div className="bg-secondary/50 rounded-lg p-4 hover:bg-secondary/70 transition">
+        <div className="flex flex-col items-center text-center">
+          <Link to={`/profile/${user.id}`}>
+            <AvatarWithVerify
+              src={user.avatar}
+              fallback={user.displayName}
+              isVerified={user.isVerified}
+              size="lg"
+              className="mb-3"
+            />
+          </Link>
+          <Link to={`/profile/${user.id}`} className="hover:underline">
+            <h3 className="font-semibold">{user.displayName}</h3>
+          </Link>
+          <p className="text-sm text-muted-foreground">{user.username}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {user.followers.toLocaleString()} followers
+          </p>
+          {!isSelf && (
+            <Button
+              variant={isFollowing ? "default" : "outline"}
+              size="sm"
+              className="mt-3"
+              onClick={() => handleFollow(user)}
+            >
+              {isFollowing ? "Following" : "Follow"}
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const EmptyTracks = () => (
     <div className="flex flex-col items-center justify-center py-16 rounded-3xl border-2 border-dashed border-border/50 bg-muted/20">
@@ -77,29 +147,7 @@ export default function ExplorePage() {
         {featuredUsers.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {featuredUsers.map((user) => (
-              <Link
-                key={user.id}
-                to={`/profile/${user.id}`}
-                className="bg-secondary/50 rounded-lg p-4 hover:bg-secondary/70 transition"
-              >
-                <div className="flex flex-col items-center text-center">
-                  <AvatarWithVerify
-                    src={user.avatar}
-                    fallback={user.displayName}
-                    isVerified={user.isVerified}
-                    size="lg"
-                    className="mb-3"
-                  />
-                  <h3 className="font-semibold">{user.displayName}</h3>
-                  <p className="text-sm text-muted-foreground">{user.username}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {user.followers.toLocaleString()} followers
-                  </p>
-                  <Button variant="outline" size="sm" className="mt-3">
-                    Follow
-                  </Button>
-                </div>
-              </Link>
+              <ArtistCard key={user.id} user={user} />
             ))}
           </div>
         ) : (
@@ -110,7 +158,6 @@ export default function ExplorePage() {
       <section>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-6">
-            <TabsTrigger value="featured">Featured</TabsTrigger>
             <TabsTrigger value="trending">Trending</TabsTrigger>
             <TabsTrigger value="new">New</TabsTrigger>
             <TabsTrigger value="popular">Popular</TabsTrigger>
@@ -118,7 +165,6 @@ export default function ExplorePage() {
           </TabsList>
 
           {[
-            { value: "featured", list: popularTracks.slice(0, 6) },
             { value: "trending", list: trendingTracks },
             { value: "new", list: newTracks },
             { value: "popular", list: popularTracks },
@@ -144,29 +190,7 @@ export default function ExplorePage() {
           <h2 className="text-2xl font-semibold mb-6">Verified Artists</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {verifiedArtists.slice(0, 8).map((user) => (
-              <Link
-                key={user.id}
-                to={`/profile/${user.id}`}
-                className="bg-secondary/50 rounded-lg p-4 hover:bg-secondary/70 transition"
-              >
-                <div className="flex flex-col items-center text-center">
-                  <AvatarWithVerify
-                    src={user.avatar}
-                    fallback={user.displayName}
-                    isVerified={user.isVerified}
-                    size="lg"
-                    className="mb-3"
-                  />
-                  <h3 className="font-semibold">{user.displayName}</h3>
-                  <p className="text-sm text-muted-foreground">{user.username}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {user.followers.toLocaleString()} followers
-                  </p>
-                  <Button variant="outline" size="sm" className="mt-3">
-                    Follow
-                  </Button>
-                </div>
-              </Link>
+              <ArtistCard key={user.id} user={user} />
             ))}
           </div>
         </section>

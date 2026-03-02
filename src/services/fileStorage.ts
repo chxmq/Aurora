@@ -1,5 +1,5 @@
 // Define the storage key for the file map
-const FILE_MAP_KEY = 'sai_music_files';
+const FILE_MAP_KEY = 'aurora_files';
 
 // Interface for file metadata
 interface FileMetadata {

@@ -8,7 +8,7 @@ export const initializeIPFSStorage = async (email: string) => {
   try {
     client = await create();
     await client.login(email);
-    const space = await client.createSpace('sai-music-app');
+    const space = await client.createSpace('aurora-music-app');
     await space.save();
     await client.setCurrentSpace(space.did());
   } catch (error) {

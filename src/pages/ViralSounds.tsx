@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import MusicTrackCard from "@/components/MusicTrackCard";
-import { getTracks } from "@/services/localStorage";
+import MusicTrackCard from "@/components/music/MusicTrackCard";
+import { getTracks, STORAGE_KEYS } from "@/services/localStorage";
 import { calculateTrackScore } from "@/lib/algorithms";
 import { Track } from "@/lib/types";
 
@@ -30,7 +30,7 @@ export default function ViralSoundsPage() {
 
   useEffect(() => {
     const handler = (e: StorageEvent) => {
-      if (e.key?.startsWith("sai_music_tracks")) buildList();
+      if (e.key === STORAGE_KEYS.TRACKS) buildList();
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);

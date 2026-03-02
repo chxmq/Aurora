@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, Post, Track } from '../lib/types';
 import { getPopulatedPosts, getPopularTracks } from '../services/data';
-import { getUsers, getCurrentUser } from '../services/localStorage';
+import { getUsers, getCurrentUser, STORAGE_KEYS } from '../services/localStorage';
 
 interface DataContextType {
   posts: (Post & { user: User })[];
@@ -11,6 +11,7 @@ interface DataContextType {
   refreshData: () => void;
   refreshPosts: () => void;
   refreshUser: () => void;
+  setCurrentUser: (user: User) => void;
 }
 
 const DataContext = createContext<DataContextType>({
@@ -21,6 +22,7 @@ const DataContext = createContext<DataContextType>({
   refreshData: () => {},
   refreshPosts: () => {},
   refreshUser: () => {},
+  setCurrentUser: () => {},
 });
 
 export const useData = () => useContext(DataContext);
@@ -87,10 +89,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
       if (!event.key) return;
-      if (event.key.startsWith('sai_music_posts')) refreshPosts();
-      if (event.key.startsWith('sai_music_tracks')) refreshTracks();
-      if (event.key.startsWith('sai_music_users')) refreshSuggestedUsers();
-      if (event.key === 'sai_music_current_user') refreshUser();
+      if (event.key === STORAGE_KEYS.POSTS) refreshPosts();
+      if (event.key === STORAGE_KEYS.TRACKS) refreshTracks();
+      if (event.key === STORAGE_KEYS.USERS) refreshSuggestedUsers();
+      if (event.key === STORAGE_KEYS.CURRENT_USER) refreshUser();
     };
 
     window.addEventListener('storage', handleStorage);
@@ -107,6 +109,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         refreshData,
         refreshPosts,
         refreshUser,
+        setCurrentUser,
       }}
     >
       {children}

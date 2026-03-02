@@ -5,13 +5,16 @@ import { AvatarWithVerify } from "@/components/ui/avatar-with-verify";
 import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
 import { useWallet } from "@/providers/walletUtils";
+import { useData } from "@/providers/DataProvider";
+import { getNotificationsForUser, markAllNotificationsRead } from "@/services/localStorage";
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const { isConnected } = useWallet();
+  const { isConnected, connectWallet } = useWallet();
+  const { currentUser } = useData();
 
   useEffect(() => {
-    if (!isConnected) {
+    if (!isConnected || !currentUser) {
       setNotifications([
         {
           id: "sys-1",
@@ -22,12 +25,12 @@ export default function NotificationsPage() {
           createdAt: new Date().toISOString(),
         },
       ]);
-    } else {
-      // Real notifications would be fetched here (from a backend or IPFS index).
-      // For now, show empty state so users know the feature is coming.
-      setNotifications([]);
+      return;
     }
-  }, [isConnected]);
+    const userNotifs = getNotificationsForUser(currentUser.id);
+    setNotifications(userNotifs);
+    markAllNotificationsRead(currentUser.id);
+  }, [isConnected, currentUser]);
 
   const renderContent = (n: Notification) => {
     const timeLabel = formatDistanceToNow(new Date(n.createdAt), { addSuffix: true });
@@ -91,7 +94,7 @@ export default function NotificationsPage() {
               : "Connect your wallet to start receiving notifications."}
           </p>
           {!isConnected && (
-            <Button variant="outline" className="mt-4" onClick={() => {}}>
+            <Button variant="outline" className="mt-4" onClick={connectWallet}>
               Connect Wallet
             </Button>
           )}

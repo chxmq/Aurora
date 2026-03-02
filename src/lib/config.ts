@@ -23,6 +23,12 @@ export const API_CONFIG = {
   TIMEOUT: 30000, // 30 seconds
 };
 
+// Economy / pricing configuration
+export const ECONOMY_CONFIG = {
+  DEFAULT_TRACK_PRICE_ETH: '0.01',
+  TIP_PRESETS_ETH: ['0.01', '0.05', '0.1', '0.5', '1'],
+};
+
 // Feature Flags
 export const FEATURES = {
   // IPFS is disabled by default unless explicitly enabled

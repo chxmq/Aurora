@@ -66,10 +66,22 @@ export interface TrackInput {
 export interface Comment {
   id: string;
   userId: string;
-  postId: string;
+  postId?: string;
+  trackId?: string;
   content: string;
   createdAt: string;
   user?: User;
+}
+
+export interface Playlist {
+  id: string;
+  name: string;
+  description?: string;
+  coverArt?: string;
+  trackIds: string[];
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Notification {

@@ -3,9 +3,9 @@ import { Link } from "react-router-dom";
 import { TrendingUp, Music, Users, Zap, Share } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getPopulatedPosts, getPopularTracks } from "@/services/data";
-import { getTracks, getUsers } from "@/services/localStorage";
-import MusicTrackCard from "@/components/MusicTrackCard";
-import PostCard from "@/components/PostCard";
+import { getTracks, getUsers, STORAGE_PREFIX } from "@/services/localStorage";
+import MusicTrackCard from "@/components/music/MusicTrackCard";
+import PostCard from "@/components/post/PostCard";
 import { cn } from "@/lib/utils";
 import { Track, Post, User } from "@/lib/types";
 
@@ -30,7 +30,7 @@ export default function Index() {
   useEffect(() => {
     const handler = (e: StorageEvent) => {
       if (!e.key) return;
-      if (e.key.startsWith("sai_music_")) {
+      if (e.key.startsWith(STORAGE_PREFIX)) {
         const tracks = getPopularTracks(6);
         const posts = getPopulatedPosts(3);
         const allTracks = getTracks();

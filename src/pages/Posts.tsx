@@ -3,8 +3,9 @@ import { Link } from "react-router-dom";
 import { MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getPopulatedPosts } from "@/services/data";
-import PostCard from "@/components/PostCard";
-import CreatePostForm from "@/components/CreatePostForm";
+import { STORAGE_PREFIX } from "@/services/localStorage";
+import PostCard from "@/components/post/PostCard";
+import CreatePostForm from "@/components/post/CreatePostForm";
 import { Post, User } from "@/lib/types";
 
 export default function PostsPage() {
@@ -20,7 +21,7 @@ export default function PostsPage() {
 
   useEffect(() => {
     const handler = (e: StorageEvent) => {
-      if (e.key?.startsWith("sai_music_")) refresh();
+      if (e.key?.startsWith(STORAGE_PREFIX)) refresh();
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
