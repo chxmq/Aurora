@@ -89,7 +89,7 @@ export default function Index() {
           {statCards.map((stat, index) => (
             <div
               key={stat.label}
-              className="group relative overflow-hidden animate-fade-up"
+              className="group relative overflow-hidden rounded-3xl animate-fade-up"
               style={{ animationDelay: `${index * 150}ms` }}
             >
               <div className={cn(

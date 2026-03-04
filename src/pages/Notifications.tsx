@@ -43,7 +43,6 @@ export default function NotificationsPage() {
           </div>
           <div className="flex-1">
             <p>{n.content}</p>
-            <p className="text-xs text-muted-foreground">{timeLabel}</p>
           </div>
         </div>
       );
