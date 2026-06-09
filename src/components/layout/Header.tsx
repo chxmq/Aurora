@@ -26,9 +26,8 @@ export default function Header() {
 
   const handleDisconnect = () => {
     disconnectWallet();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    saveCurrentUser(null as any);
-    setCurrentUser(null as any);
+    saveCurrentUser(null);
+    setCurrentUser(null);
   };
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);

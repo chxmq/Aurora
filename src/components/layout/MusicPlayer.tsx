@@ -25,7 +25,8 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { getTracks } from "@/services/localStorage";
+import { getTracks, incrementTrackPlays, toggleTrackLike, isTrackLiked } from "@/services/localStorage";
+import { useData } from "@/providers/DataProvider";
 import { toast } from "sonner";
 import { getFileUrl } from "@/services/fileStorage";
 import { getGatewayUrl } from "@/lib/utils";
@@ -49,16 +50,43 @@ interface MusicPlayerProps {
   minimized?: boolean;
 }
 
-// Create a single global audio instance
-const globalAudio = new Audio();
-globalAudio.preload = "auto";
-globalAudio.crossOrigin = "anonymous";
+// ─── Two-deck audio engine (enables real crossfading) ─────────────────────────
+// Deck A and Deck B each have their own <audio> element + gain node. Normal
+// playback uses the "active" deck; during a crossfade the incoming track plays
+// on the inactive deck while we ramp the two gains in opposite directions.
+const deckA = new Audio();
+const deckB = new Audio();
+[deckA, deckB].forEach((a) => {
+  a.preload = "auto";
+  a.crossOrigin = "anonymous";
+});
 
-// Add audio context for better control
+// Which deck is currently the primary ("now playing") deck.
+let activeDeck: "A" | "B" = "A";
+
+// Web Audio graph nodes
 let audioContext: AudioContext | null = null;
-let audioSource: MediaElementAudioSourceNode | null = null;
-let gainNode: GainNode | null = null;
+let sourceA: MediaElementAudioSourceNode | null = null;
+let sourceB: MediaElementAudioSourceNode | null = null;
+let gainA: GainNode | null = null; // per-deck crossfade gain
+let gainB: GainNode | null = null;
+let mixBus: GainNode | null = null; // unity sum of both decks (EQ insert point)
 let analyserNode: AnalyserNode | null = null;
+let masterGain: GainNode | null = null; // volume / mute
+
+// Crossfade settings shared with the CrossfadeController UI
+export const crossfadeSettings = {
+  enabled: false,
+  duration: 3, // seconds
+};
+
+export function setCrossfadeEnabled(enabled: boolean) {
+  crossfadeSettings.enabled = enabled;
+}
+
+export function setCrossfadeDuration(seconds: number) {
+  crossfadeSettings.duration = Math.max(0, seconds);
+}
 
 // Initialize audio context on first user interaction
 const initAudioContext = async () => {
@@ -66,19 +94,34 @@ const initAudioContext = async () => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       audioContext = new (window.AudioContext || (window as unknown as any).webkitAudioContext)();
-      audioSource = audioContext.createMediaElementSource(globalAudio);
-      gainNode = audioContext.createGain();
+      sourceA = audioContext.createMediaElementSource(deckA);
+      sourceB = audioContext.createMediaElementSource(deckB);
+      gainA = audioContext.createGain();
+      gainB = audioContext.createGain();
+      mixBus = audioContext.createGain();
       analyserNode = audioContext.createAnalyser();
       analyserNode.fftSize = 256;
       analyserNode.smoothingTimeConstant = 0.8;
-      audioSource.connect(analyserNode);
-      analyserNode.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+      masterGain = audioContext.createGain();
+
+      // deck -> deck gain -> mix bus -> analyser -> master volume -> output
+      sourceA.connect(gainA);
+      sourceB.connect(gainB);
+      gainA.connect(mixBus);
+      gainB.connect(mixBus);
+      mixBus.connect(analyserNode);
+      analyserNode.connect(masterGain);
+      masterGain.connect(audioContext.destination);
+
+      // Deck A starts active (audible), deck B silent
+      gainA.gain.value = 1;
+      gainB.gain.value = 0;
+      mixBus.gain.value = 1;
     } catch (error) {
       console.error('Failed to initialize audio context:', error);
     }
   }
-  
+
   if (audioContext && audioContext.state === 'suspended') {
     try {
       await audioContext.resume();
@@ -86,17 +129,26 @@ const initAudioContext = async () => {
       console.error('Failed to resume audio context:', error);
     }
   }
-  
+
   return audioContext;
 };
+
+// Returns the gain node attached to the given deck (null until initialized)
+const gainForDeck = (deck: "A" | "B") => (deck === "A" ? gainA : gainB);
 
 export const audioStore = {
   currentTrackId: null as string | null,
   isPlaying: false,
-  audioElement: globalAudio,
   audioContext: null as AudioContext | null,
   gainNode: null as GainNode | null,
   analyserNode: null as AnalyserNode | null,
+  isCrossfading: false,
+  get audioElement(): HTMLAudioElement {
+    return activeDeck === "A" ? deckA : deckB;
+  },
+  get inactiveAudio(): HTMLAudioElement {
+    return activeDeck === "A" ? deckB : deckA;
+  },
   volume: 0.8,
   isMuted: false,
   isLooping: false,
@@ -172,14 +224,20 @@ export const audioStore = {
   async initializeAudio() {
     try {
       this.audioContext = await initAudioContext();
-      this.gainNode = gainNode;
+      this.gainNode = masterGain;
       this.analyserNode = analyserNode;
       
       if (this.audioContext && this.audioContext.state === 'suspended') {
         await this.audioContext.resume();
       }
       
-      this.audioElement.volume = this.isMuted ? 0 : this.volume;
+      if (masterGain) {
+        masterGain.gain.value = this.isMuted ? 0 : this.volume;
+        deckA.volume = 1;
+        deckB.volume = 1;
+      } else {
+        this.audioElement.volume = this.isMuted ? 0 : this.volume;
+      }
       this.audioElement.loop = this.isLooping;
       
       return true;
@@ -201,6 +259,9 @@ export const audioStore = {
         this.cleanup();
         return;
       }
+
+      // Any explicit track change cancels an in-flight crossfade
+      this.cancelCrossfade();
 
       const isNewTrack = this.currentTrackId !== trackId;
       this.currentTrackId = trackId;
@@ -251,6 +312,10 @@ export const audioStore = {
       }
 
       if (playing) {
+        if (isNewTrack) {
+          // Count a play whenever a new track begins playback
+          incrementTrackPlays(trackId);
+        }
         await this.play();
       } else {
         this.pause();
@@ -317,18 +382,26 @@ export const audioStore = {
 
   setVolume(volume: number) {
     this.volume = volume;
-    this.audioElement.volume = this.isMuted ? 0 : volume;
-    if (this.gainNode) {
-      this.gainNode.gain.value = this.isMuted ? 0 : volume;
+    if (masterGain) {
+      masterGain.gain.value = this.isMuted ? 0 : volume;
+      deckA.volume = 1;
+      deckB.volume = 1;
+    } else {
+      deckA.volume = this.isMuted ? 0 : volume;
+      deckB.volume = this.isMuted ? 0 : volume;
     }
     this.notifyListeners();
   },
 
   setMuted(muted: boolean) {
     this.isMuted = muted;
-    this.audioElement.volume = muted ? 0 : this.volume;
-    if (this.gainNode) {
-      this.gainNode.gain.value = muted ? 0 : this.volume;
+    if (masterGain) {
+      masterGain.gain.value = muted ? 0 : this.volume;
+      deckA.volume = 1;
+      deckB.volume = 1;
+    } else {
+      deckA.volume = muted ? 0 : this.volume;
+      deckB.volume = muted ? 0 : this.volume;
     }
     this.notifyListeners();
   },
@@ -425,30 +498,156 @@ export const audioStore = {
       } else {
         this.buffered = 0;
       }
+
+      // Auto-trigger a crossfade as the active track nears its end
+      const remaining = this.duration - this.currentTime;
+      if (
+        crossfadeSettings.enabled &&
+        !this.isLooping &&
+        !this.isCrossfading &&
+        this.duration > 0 &&
+        remaining > 0 &&
+        remaining <= crossfadeSettings.duration
+      ) {
+        this.startCrossfade();
+      }
       
       this.notifyListeners();
+    }
+  },
+
+  // Resolve a track's stored URL into something the <audio> element can load
+  resolveAudioUrl(rawUrl: string): string | null {
+    let url = rawUrl;
+    if (url.startsWith('file://')) {
+      const stored = getFileUrl(url.replace('file://', ''));
+      if (!stored) return null;
+      url = stored;
+    } else if (url.startsWith('ipfs://')) {
+      url = getGatewayUrl(url);
+    } else if (url.startsWith('/') || url.startsWith('http')) {
+      // already a usable URL
+    } else {
+      url = `/${url}`;
+    }
+    return url;
+  },
+
+  // Begin a crossfade from the active deck into the next track on the idle deck
+  startCrossfade() {
+    if (this.isCrossfading || !audioContext) return;
+    const tracks = getTracks();
+    if (tracks.length < 2) return;
+
+    const currentIndex = tracks.findIndex(t => t.id === this.currentTrackId);
+    if (currentIndex === -1) return;
+
+    let nextIndex: number;
+    if (this.isShuffling) {
+      const others = tracks.map((_, i) => i).filter(i => i !== currentIndex);
+      if (others.length === 0) return;
+      nextIndex = others[Math.floor(Math.random() * others.length)];
+    } else {
+      nextIndex = (currentIndex + 1) % tracks.length;
+    }
+    const nextTrack = tracks[nextIndex];
+
+    const incomingDeckId = activeDeck === "A" ? "B" : "A";
+    const incomingEl = this.inactiveAudio;
+    const outGain = gainForDeck(activeDeck);
+    const inGain = gainForDeck(incomingDeckId);
+    if (!outGain || !inGain) return;
+
+    const url = this.resolveAudioUrl(nextTrack.audioUrl);
+    if (!url) return;
+
+    this.isCrossfading = true;
+    incomingEl.src = url;
+    incomingEl.loop = false;
+    try {
+      incomingEl.currentTime = 0;
+    } catch { /* not yet seekable */ }
+    incomingEl.play().then(() => incrementTrackPlays(nextTrack.id)).catch(() => {});
+
+    const now = audioContext.currentTime;
+    const dur = Math.max(0.1, crossfadeSettings.duration);
+    inGain.gain.cancelScheduledValues(now);
+    outGain.gain.cancelScheduledValues(now);
+    // linear ramps so values can reach exactly 0 (exponential cannot)
+    inGain.gain.setValueAtTime(0.0001, now);
+    inGain.gain.linearRampToValueAtTime(1, now + dur);
+    outGain.gain.setValueAtTime(outGain.gain.value, now);
+    outGain.gain.linearRampToValueAtTime(0.0001, now + dur);
+
+    const outgoingEl = this.audioElement;
+    window.setTimeout(() => {
+      try {
+        outgoingEl.pause();
+        outgoingEl.currentTime = 0;
+      } catch { /* ignore */ }
+      outGain.gain.value = 0;
+      inGain.gain.value = 1;
+      activeDeck = incomingDeckId;
+      this.currentTrackId = nextTrack.id;
+      this.isCrossfading = false;
+      this.isPlaying = true;
+      this.notifyListeners();
+    }, dur * 1000);
+  },
+
+  // Abort an in-flight crossfade, restoring the active deck to full volume
+  cancelCrossfade() {
+    if (!this.isCrossfading) return;
+    this.isCrossfading = false;
+    const incoming = this.inactiveAudio;
+    try {
+      incoming.pause();
+      incoming.currentTime = 0;
+    } catch { /* ignore */ }
+    const ag = gainForDeck(activeDeck);
+    const ig = gainForDeck(activeDeck === "A" ? "B" : "A");
+    if (audioContext) {
+      if (ag) {
+        ag.gain.cancelScheduledValues(audioContext.currentTime);
+        ag.gain.value = 1;
+      }
+      if (ig) {
+        ig.gain.cancelScheduledValues(audioContext.currentTime);
+        ig.gain.value = 0;
+      }
     }
   }
 };
 
-// Set up global audio event listeners
-globalAudio.addEventListener('ended', () => {
-  if (!audioStore.isLooping) {
-    audioStore.skipToNext();
-  }
-});
+// Set up audio event listeners on both decks. Events are ignored unless they
+// originate from the currently active deck (the incoming deck during a
+// crossfade should not drive progress/skip logic until it's promoted).
+const attachDeckListeners = (el: HTMLAudioElement) => {
+  el.addEventListener('ended', () => {
+    if (el !== audioStore.audioElement) return;
+    if (!audioStore.isLooping && !audioStore.isCrossfading) {
+      audioStore.skipToNext();
+    }
+  });
 
-globalAudio.addEventListener('timeupdate', () => {
-  audioStore.updateProgress();
-});
+  el.addEventListener('timeupdate', () => {
+    if (el !== audioStore.audioElement) return;
+    audioStore.updateProgress();
+  });
 
-globalAudio.addEventListener('progress', () => {
-  audioStore.updateProgress();
-});
+  el.addEventListener('progress', () => {
+    if (el !== audioStore.audioElement) return;
+    audioStore.updateProgress();
+  });
 
-globalAudio.addEventListener('error', (e) => {
-  audioStore.handleAudioError(e, 'global error');
-});
+  el.addEventListener('error', (e) => {
+    if (el !== audioStore.audioElement) return;
+    audioStore.handleAudioError(e, 'global error');
+  });
+};
+
+attachDeckListeners(deckA);
+attachDeckListeners(deckB);
 
 // Export utility functions
 export function playTrack(trackId: string) {
@@ -504,6 +703,7 @@ export function skipToPreviousTrack() {
 }
 
 export default function MusicPlayer({ className, minimized = false }: MusicPlayerProps) {
+  const { currentUser } = useData();
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -543,6 +743,15 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
     const unsubscribe = audioStore.subscribe(updateStates);
     return unsubscribe;
   }, []);
+
+  // Keep the like indicator in sync with the persisted like state
+  useEffect(() => {
+    if (currentTrack && currentUser) {
+      setIsLiked(isTrackLiked(currentTrack.id, currentUser.id));
+    } else {
+      setIsLiked(false);
+    }
+  }, [currentTrack, currentUser]);
 
   // Format time helper
   const formatTime = (seconds: number) => {
@@ -605,10 +814,14 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
 
   // Handle track actions
   const handleLike = () => {
-    setIsLiked(!isLiked);
-    if (currentTrack) {
-      toast.success(isLiked ? "Removed from favorites" : "Added to favorites");
+    if (!currentTrack) return;
+    if (!currentUser) {
+      toast.error("Connect your wallet to like tracks");
+      return;
     }
+    const nowLiked = toggleTrackLike(currentTrack.id, currentUser.id);
+    setIsLiked(nowLiked);
+    toast.success(nowLiked ? "Added to favorites" : "Removed from favorites");
   };
 
   const VolumeIcon = getVolumeIcon();
@@ -867,8 +1080,8 @@ export default function MusicPlayer({ className, minimized = false }: MusicPlaye
                 <TabsContent value="equalizer" className="h-full m-0 p-4">
                   <AudioEqualizer 
                     audioContext={audioStore.audioContext}
-                    sourceNode={audioSource}
-                    destinationNode={gainNode}
+                    sourceNode={mixBus}
+                    destinationNode={analyserNode}
                     className="h-full w-full"
                   />
                 </TabsContent>

@@ -94,8 +94,7 @@ export function calculateUserEngagementScore(user: User, posts: Post[]): number 
         posts: 0.2,
         comments: 0.15,
         likes: 0.15,
-        shares: 0.1,
-        profileCompleteness: 0.1
+        profileCompleteness: 0.2
     };
 
     // Calculate individual scores using greedy approach

@@ -13,8 +13,10 @@ import {
 } from "@/components/ui/table";
 
 export default function PinataStorageMonitor() {
-  const [usage, setUsage] = useState<any>(null);
-  const [pinnedContent, setPinnedContent] = useState<any>(null);
+  type UsageData = Awaited<ReturnType<typeof getPinataUsage>>;
+  type PinnedData = Awaited<ReturnType<typeof getPinnedContent>>;
+  const [usage, setUsage] = useState<UsageData | null>(null);
+  const [pinnedContent, setPinnedContent] = useState<PinnedData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -130,7 +132,7 @@ export default function PinataStorageMonitor() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pinnedContent?.items.map((item: any) => (
+              {pinnedContent?.items.map((item) => (
                 <TableRow key={item.hash}>
                   <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell>{item.type}</TableCell>

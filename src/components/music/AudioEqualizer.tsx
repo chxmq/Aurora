@@ -18,7 +18,7 @@ interface EqualizerPreset {
 
 interface AudioEqualizerProps {
   audioContext: AudioContext | null;
-  sourceNode: MediaElementAudioSourceNode | null;
+  sourceNode: AudioNode | null;
   destinationNode: AudioNode | null;
   className?: string;
 }
@@ -63,7 +63,7 @@ export default function AudioEqualizer({
         if (Array.isArray(parsed.bands)) {
           setBands(parsed.bands);
         }
-      } catch {}
+      } catch { /* ignore malformed saved settings */ }
     }
   }, []);
 
@@ -94,6 +94,13 @@ export default function AudioEqualizer({
       });
 
       filtersRef.current = filters;
+      // Insert the EQ in-line between the source and the destination.
+      // The source is normally wired directly to the destination (analyser),
+      // so we must remove that direct link first to avoid the signal reaching
+      // the destination twice (which causes doubled volume / comb filtering).
+      try {
+        sourceNode.disconnect();
+      } catch (e) { /* no existing connection */ }
       let currentNode: AudioNode = sourceNode;
       filters.forEach(filter => {
         currentNode.connect(filter);
@@ -119,7 +126,7 @@ export default function AudioEqualizer({
               filters[i].gain.value = b.gain;
             });
           }
-        } catch {}
+        } catch { /* ignore malformed saved settings */ }
       }
       if (!initialBands) {
         initialBands = FREQUENCY_BANDS.map((frequency, index) => ({
@@ -137,13 +144,19 @@ export default function AudioEqualizer({
       filtersRef.current.forEach(filter => {
         try {
           filter.disconnect();
-        } catch (e) {}
+        } catch { /* already disconnected */ }
       });
       if (gainNodeRef.current) {
         try {
           gainNodeRef.current.disconnect();
-        } catch (e) {}
+        } catch { /* already disconnected */ }
       }
+      // Restore the direct source -> destination connection so audio keeps
+      // flowing (and the visualiser keeps receiving signal) after unmount.
+      try {
+        sourceNode.disconnect();
+        sourceNode.connect(destinationNode);
+      } catch { /* nodes already torn down */ }
     };
   }, [audioContext, sourceNode, destinationNode]);
 

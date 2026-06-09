@@ -11,7 +11,7 @@ interface DataContextType {
   refreshData: () => void;
   refreshPosts: () => void;
   refreshUser: () => void;
-  setCurrentUser: (user: User) => void;
+  setCurrentUser: (user: User | null) => void;
 }
 
 const DataContext = createContext<DataContextType>({

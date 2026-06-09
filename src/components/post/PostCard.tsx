@@ -40,7 +40,7 @@ export default function PostCard({ post, onDelete, className }: PostCardProps) {
 
   const userId = currentUser?.id ?? "";
   const [isLiked, setIsLiked] = useState(() => isPostLiked(post.id, userId));
-  const [likeCount, setLikeCount] = useState(post.likes);
+  const [likeCount, setLikeCount] = useState(() => post.likedBy?.length ?? post.likes);
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>(() => getPostComments(post.id));
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -107,6 +107,12 @@ export default function PostCard({ post, onDelete, className }: PostCardProps) {
   const handleImageError = () => {
     setImageUrl(null);
   };
+
+  // Re-sync like state once the current user is known (loaded asynchronously)
+  useEffect(() => {
+    setIsLiked(isPostLiked(post.id, userId));
+    setLikeCount(post.likedBy?.length ?? post.likes);
+  }, [userId, post.id, post.likedBy, post.likes]);
 
 
   const handleLike = () => {

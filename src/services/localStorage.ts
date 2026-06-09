@@ -49,7 +49,7 @@ export const getUsers = (): User[] => {
   return getFromStorage<User[]>(STORAGE_KEYS.USERS) || [];
 };
 
-export const saveCurrentUser = (user: User): void => {
+export const saveCurrentUser = (user: User | null): void => {
   setToStorage(STORAGE_KEYS.CURRENT_USER, user);
 };
 
@@ -272,6 +272,17 @@ export const removeTrackFromPlaylist = (playlistId: string, trackId: string): vo
 
 export const getLikedTracks = (userId: string): Track[] =>
   getTracks().filter(t => t.likedBy?.includes(userId));
+
+// ─── Play count persistence ───────────────────────────────────────────────────
+
+export const incrementTrackPlays = (trackId: string): number => {
+  const tracks = getTracks();
+  const idx = tracks.findIndex(t => t.id === trackId);
+  if (idx === -1) return 0;
+  tracks[idx].plays = (tracks[idx].plays || 0) + 1;
+  saveTracks(tracks);
+  return tracks[idx].plays;
+};
 
 // ─── Initialize local storage with mock data ──────────────────────────────────
 export const initializeLocalStorage = (

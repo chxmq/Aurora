@@ -174,10 +174,11 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       toast.dismiss();
       toast.success(`Transaction sent! Hash: ${txHash.substring(0, 10)}...`);
       callback();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.dismiss();
-      if (error && error.message) {
-        toast.error(`Transaction failed: ${error.message}`);
+      const message = error instanceof Error ? error.message : undefined;
+      if (message) {
+        toast.error(`Transaction failed: ${message}`);
       } else {
         toast.error("Transaction failed");
       }
@@ -206,6 +207,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
 declare global {
   interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ethereum?: any;
   }
 }

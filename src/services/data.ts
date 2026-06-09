@@ -314,19 +314,24 @@ export const getPopulatedPosts = (limit = 20) => {
     textOnly: { count: 0, max: Math.ceil(limit * 0.4) },
   };
 
+  const included = new Set<(typeof postsWithScores)[number]>();
   for (const post of postsWithScores) {
     const cat = post.image ? "withImage" : "textOnly";
     if (counts[cat].count < counts[cat].max) {
       diverse.push(post);
+      included.add(post);
       counts[cat].count++;
     }
     if (diverse.length >= limit) break;
   }
 
-  while (diverse.length < limit && postsWithScores.length > diverse.length) {
-    const next = postsWithScores.find((p) => !diverse.includes(p));
-    if (next) diverse.push(next);
-    else break;
+  // Backfill any remaining slots with the highest-scoring leftovers
+  for (const post of postsWithScores) {
+    if (diverse.length >= limit) break;
+    if (!included.has(post)) {
+      diverse.push(post);
+      included.add(post);
+    }
   }
 
   return diverse;
